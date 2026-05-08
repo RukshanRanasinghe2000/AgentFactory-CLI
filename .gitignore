@@ -1,0 +1,23 @@
+# Go binaries
+go/agentfactory
+go/agentfactory.exe
+go/*.exe
+
+# Build output
+go/dist/
+
+# Go test cache
+go/testdata/*.tmp
+
+# Environment
+.env
+*.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
