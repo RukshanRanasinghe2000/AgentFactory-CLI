@@ -4,6 +4,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/agentfactory/cli/config"
@@ -66,6 +67,82 @@ func Validate(file, configPath string) {
 	fmt.Println()
 
 	if report.Errors > 0 {
+		os.Exit(1)
+	}
+}
+
+// ValidateDir finds every .md file in dir, validates each one, and prints
+// a combined summary. Exits with code 1 if any file has errors.
+func ValidateDir(dir, configPath string) {
+	entries, err := filepath.Glob(filepath.Join(dir, "*.md"))
+	if err != nil || len(entries) == 0 {
+		fatalf("no .md files found in directory: %s", dir)
+	}
+
+	fmt.Printf("\n%s%sAgentFactory Spec Validator%s  %s(directory)%s\n",
+		colorBold, colorCyan, colorReset, colorDim, colorReset)
+	fmt.Printf("%s%s%s\n\n", colorDim, dir, colorReset)
+
+	totalFiles := 0
+	totalErrors := 0
+	totalWarnings := 0
+
+	for _, file := range entries {
+		cfg, _, err := config.Load(configPath, file)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%serror loading config for %s: %v%s\n",
+				colorRed, file, err, colorReset)
+			continue
+		}
+
+		data, err := os.ReadFile(file)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%scannot read %s: %v%s\n",
+				colorRed, file, err, colorReset)
+			continue
+		}
+
+		spec, err := parser.ParseFile(string(data))
+		if err != nil {
+			// Not a valid spec — skip silently with a note
+			fmt.Printf("%s%-40s%s %sskipped (not a valid spec)%s\n",
+				colorDim, filepath.Base(file), colorReset, colorYellow, colorReset)
+			continue
+		}
+
+		report := validator.Validate(file, spec, cfg)
+		totalFiles++
+		totalErrors += report.Errors
+		totalWarnings += report.Warnings
+
+		// One-line result per file
+		base := filepath.Base(file)
+		if report.Errors > 0 {
+			fmt.Printf("  %s✗%s %-40s %s%d error(s)%s",
+				colorRed, colorReset, base, colorRed, report.Errors, colorReset)
+		} else {
+			fmt.Printf("  %s✓%s %-40s %s%d passed%s",
+				colorGreen, colorReset, base, colorGreen, report.Infos, colorReset)
+		}
+		if report.Warnings > 0 {
+			fmt.Printf("  %s%d warning(s)%s", colorYellow, report.Warnings, colorReset)
+		}
+		fmt.Println()
+	}
+
+	// Overall summary
+	fmt.Println()
+	fmt.Println(strings.Repeat("─", 60))
+	fmt.Printf("%s files: %d  |  ", colorBold, totalFiles)
+	if totalErrors > 0 {
+		fmt.Printf("%s%d error(s)%s  |  ", colorRed, totalErrors, colorReset+colorBold)
+	}
+	if totalWarnings > 0 {
+		fmt.Printf("%s%d warning(s)%s  |  ", colorYellow, totalWarnings, colorReset+colorBold)
+	}
+	fmt.Printf("%s\n\n", colorReset)
+
+	if totalErrors > 0 {
 		os.Exit(1)
 	}
 }
