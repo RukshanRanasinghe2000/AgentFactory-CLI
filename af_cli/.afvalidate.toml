@@ -1,0 +1,170 @@
+# .afvalidate.toml — AgentFactory Validator Configuration
+#
+# Control which rules run and at what severity.
+# Place this file next to your .md spec, in your project root, or at ~/.afvalidate.toml
+#
+# Each rule accepts one of:
+#   "error"  — fails validation (exit code 1)
+#   "warn"   — shown as warning, does not fail
+#   "info"   — shown in the Passed section
+#   "off"    — rule is completely disabled (not shown at all)
+#
+# Uncomment and change any rule below to override its default.
+
+[rules]
+
+# ── Frontmatter ───────────────────────────────────────────────────────────────
+
+# spec_version field is present and matches 0.x.x format
+# "spec-version.set"    = "warn"
+# "spec-version.format" = "warn"
+
+# name field is present (required)
+# "name.required" = "error"
+
+# name is not longer than 80 characters
+# "name.length" = "warn"
+
+# version field is present
+# "version.set" = "warn"
+
+# version follows semver format (e.g. 1.0.0)
+# "version.semver" = "warn"
+
+# description field is present
+# "description.set" = "warn"
+
+# max_iterations is set
+# "max-iterations.set" = "info"
+
+# max_iterations is at least 1
+# "max-iterations.min" = "error"
+
+# max_iterations is not unreasonably high (> 50)
+# "max-iterations.max" = "warn"
+
+# execution_mode is "sequential" or "agentic"
+# "execution-mode.valid" = "error"
+
+# ── Model ─────────────────────────────────────────────────────────────────────
+
+# model.provider is present (required)
+# "model.provider.required" = "error"
+
+# model.provider is a known value (openai, groq, anthropic, google, ollama)
+# "model.provider.known" = "warn"
+
+# model.name is present (required)
+# "model.name.required" = "error"
+
+# model.temperature is between 0.0 and 2.0
+# "model.temperature.range" = "error"
+
+# model.authentication block is present
+# "model.auth.set" = "warn"
+
+# model api_key is not empty
+# "model.auth.api-key.empty" = "error"
+
+# model api_key uses ${env:VAR} instead of a hardcoded value
+# "model.auth.api-key.hardcoded" = "warn"
+
+# model bearer token is not empty
+# "model.auth.bearer.empty" = "error"
+
+# model auth type is a known value
+# "model.auth.type.known" = "warn"
+
+# ── Sections ──────────────────────────────────────────────────────────────────
+
+# # Role section is present and non-empty (required)
+# "role.required" = "error"
+
+# # Role section is at least 50 characters
+# "role.length" = "warn"
+
+# # Role section contains "you are" (persona convention)
+# "role.you-are" = "warn"
+
+# # Instructions section is present and non-empty (required)
+# "instructions.required" = "error"
+
+# # Instructions section is at least 100 characters
+# "instructions.length" = "warn"
+
+# # Enforcement section is present
+# "enforcement.set" = "info"
+
+# ── Tools ─────────────────────────────────────────────────────────────────────
+
+# tools block is present but empty
+# "tools.empty" = "info"
+
+# tool entry is a valid object
+# "tools.valid" = "error"
+
+# tool has a name
+# "tool.name.required" = "error"
+
+# tool has a transport block
+# "tool.transport.required" = "error"
+
+# HTTP tool has a url
+# "tool.transport.url.required" = "error"
+
+# stdio tool has a command
+# "tool.transport.command.required" = "error"
+
+# transport type is present
+# "tool.transport.type.required" = "error"
+
+# transport type is a known value
+# "tool.transport.type.known" = "warn"
+
+# tool api_key is not empty
+# "tool.auth.api-key.empty" = "error"
+
+# tool api_key uses ${env:VAR} instead of a hardcoded value
+# "tool.auth.api-key.hardcoded" = "warn"
+
+# tool bearer token is not empty
+# "tool.auth.bearer.empty" = "error"
+
+# tool basic auth username is present
+# "tool.auth.basic.username" = "error"
+
+# tool basic auth password is present
+# "tool.auth.basic.password" = "error"
+
+# ── Interfaces ────────────────────────────────────────────────────────────────
+
+# interfaces block is set
+# "interfaces.set" = "info"
+
+# interface type is present
+# "interface.type.required" = "error"
+
+# interface type is a known value
+# "interface.type.known" = "warn"
+
+# webhook interface has a prompt template
+# "interface.webhook.prompt" = "warn"
+
+# ── Skills ────────────────────────────────────────────────────────────────────
+
+# local skill has a path
+# "skill.local.path" = "error"
+
+# remote skill has a url
+# "skill.remote.url" = "error"
+
+# skill type is present
+# "skill.type.required" = "error"
+
+# skill type is a known value
+# "skill.type.known" = "warn"
+
+# ── Output Schema ─────────────────────────────────────────────────────────────
+
+# output schema JSON is valid
+# "output-schema.valid-json" = "error"

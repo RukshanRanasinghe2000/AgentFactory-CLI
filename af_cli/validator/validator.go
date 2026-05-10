@@ -1,5 +1,5 @@
 // Package validator checks an AgentFactory spec for correctness.
-// Produces structured results with severity levels: error, warning, info.
+// Every rule has a stable ID that can be overridden via .afvalidate.toml.
 package validator
 
 import (
@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/agentfactory/cli/config"
 	"github.com/agentfactory/cli/parser"
 )
 
@@ -22,6 +23,7 @@ const (
 
 // Result is a single validation finding.
 type Result struct {
+	RuleID   string
 	Severity Severity
 	Field    string
 	Message  string
@@ -29,15 +31,24 @@ type Result struct {
 
 // Report holds all findings from a validation run.
 type Report struct {
-	File    string
-	Results []Result
-	Errors  int
+	File     string
+	Results  []Result
+	Errors   int
 	Warnings int
-	Infos   int
+	Infos    int
 }
 
-func (r *Report) add(sev Severity, field, msg string) {
-	r.Results = append(r.Results, Result{sev, field, msg})
+// emit adds a result after applying any config override for ruleID.
+// If the rule is set to "off" in config it is silently skipped.
+// If the rule level is overridden the new severity is used instead.
+func (r *Report) emit(cfg *config.Config, ruleID string, defaultLevel config.RuleLevel, field, msg string) {
+	effective := cfg.Resolve(ruleID, defaultLevel)
+	if effective == config.LevelOff {
+		return
+	}
+
+	sev := levelToSeverity(effective)
+	r.Results = append(r.Results, Result{RuleID: ruleID, Severity: sev, Field: field, Message: msg})
 	switch sev {
 	case SeverityError:
 		r.Errors++
@@ -48,6 +59,17 @@ func (r *Report) add(sev Severity, field, msg string) {
 	}
 }
 
+func levelToSeverity(l config.RuleLevel) Severity {
+	switch l {
+	case config.LevelError:
+		return SeverityError
+	case config.LevelWarn:
+		return SeverityWarning
+	default:
+		return SeverityInfo
+	}
+}
+
 var (
 	reEnvPlaceholder = regexp.MustCompile(`^\$\{env:.+\}$`)
 	reSemver         = regexp.MustCompile(`^\d+\.\d+\.\d+`)
@@ -55,180 +77,220 @@ var (
 )
 
 // Validate runs all checks on a parsed spec and returns a Report.
-func Validate(file string, spec *parser.Spec) *Report {
+func Validate(file string, spec *parser.Spec, cfg *config.Config) *Report {
+	if cfg == nil {
+		cfg = config.DefaultConfig()
+	}
 	r := &Report{File: file}
 
-	checkFrontmatter(r, spec)
-	checkModel(r, spec)
-	checkSections(r, spec)
-	checkTools(r, spec)
-	checkInterfaces(r, spec)
-	checkSkills(r, spec)
-	checkOutputSchema(r, spec)
+	checkFrontmatter(r, spec, cfg)
+	checkModel(r, spec, cfg)
+	checkSections(r, spec, cfg)
+	checkTools(r, spec, cfg)
+	checkInterfaces(r, spec, cfg)
+	checkSkills(r, spec, cfg)
+	checkOutputSchema(r, spec, cfg)
 
 	return r
 }
 
-// Frontmatter 
+// ── Frontmatter ───────────────────────────────────────────────────────────────
 
-func checkFrontmatter(r *Report, s *parser.Spec) {
+func checkFrontmatter(r *Report, s *parser.Spec, cfg *config.Config) {
 	// spec_version
 	if s.SpecVersion == "" {
-		r.add(SeverityWarning, "spec_version", "not set — recommended value is \"0.3.0\"")
+		r.emit(cfg, "spec-version.set", config.LevelWarn,
+			"spec_version", "not set — recommended value is \"0.3.0\"")
 	} else if !reSpecVersion.MatchString(s.SpecVersion) {
-		r.add(SeverityWarning, "spec_version", fmt.Sprintf("unexpected format %q — expected e.g. \"0.3.0\"", s.SpecVersion))
+		r.emit(cfg, "spec-version.format", config.LevelWarn,
+			"spec_version", fmt.Sprintf("unexpected format %q — expected e.g. \"0.3.0\"", s.SpecVersion))
 	} else {
-		r.add(SeverityInfo, "spec_version", fmt.Sprintf("✓ %s", s.SpecVersion))
+		r.emit(cfg, "spec-version.set", config.LevelInfo,
+			"spec_version", fmt.Sprintf("✓ %s", s.SpecVersion))
 	}
 
 	// name
 	if strings.TrimSpace(s.Name) == "" {
-		r.add(SeverityError, "name", "required — agent must have a name")
+		r.emit(cfg, "name.required", config.LevelError,
+			"name", "required — agent must have a name")
 	} else if len(s.Name) > 80 {
-		r.add(SeverityWarning, "name", "name is very long — keep it under 80 characters")
+		r.emit(cfg, "name.length", config.LevelWarn,
+			"name", "name is very long — keep it under 80 characters")
 	} else {
-		r.add(SeverityInfo, "name", fmt.Sprintf("✓ %q", s.Name))
+		r.emit(cfg, "name.required", config.LevelInfo,
+			"name", fmt.Sprintf("✓ %q", s.Name))
 	}
 
 	// version
 	if s.Version == "" {
-		r.add(SeverityWarning, "version", "not set — recommended e.g. \"0.1.0\"")
+		r.emit(cfg, "version.set", config.LevelWarn,
+			"version", "not set — recommended e.g. \"0.1.0\"")
 	} else if !reSemver.MatchString(s.Version) {
-		r.add(SeverityWarning, "version", fmt.Sprintf("%q is not a valid semver — expected e.g. \"1.0.0\"", s.Version))
+		r.emit(cfg, "version.semver", config.LevelWarn,
+			"version", fmt.Sprintf("%q is not a valid semver — expected e.g. \"1.0.0\"", s.Version))
 	} else {
-		r.add(SeverityInfo, "version", fmt.Sprintf("✓ %s", s.Version))
+		r.emit(cfg, "version.set", config.LevelInfo,
+			"version", fmt.Sprintf("✓ %s", s.Version))
 	}
 
 	// description
 	if strings.TrimSpace(s.Description) == "" {
-		r.add(SeverityWarning, "description", "empty — add a one-sentence description of what this agent does")
+		r.emit(cfg, "description.set", config.LevelWarn,
+			"description", "empty — add a one-sentence description of what this agent does")
 	} else {
-		r.add(SeverityInfo, "description", "✓ present")
+		r.emit(cfg, "description.set", config.LevelInfo,
+			"description", "✓ present")
 	}
 
 	// max_iterations
 	if s.MaxIterations == 0 {
-		r.add(SeverityInfo, "max_iterations", "not set — will default to 5")
+		r.emit(cfg, "max-iterations.set", config.LevelInfo,
+			"max_iterations", "not set — will default to 5")
 	} else if s.MaxIterations < 1 {
-		r.add(SeverityError, "max_iterations", "must be at least 1")
+		r.emit(cfg, "max-iterations.min", config.LevelError,
+			"max_iterations", "must be at least 1")
 	} else if s.MaxIterations > 50 {
-		r.add(SeverityWarning, "max_iterations", fmt.Sprintf("%d is very high — consider 5–30 for most agents", s.MaxIterations))
+		r.emit(cfg, "max-iterations.max", config.LevelWarn,
+			"max_iterations", fmt.Sprintf("%d is very high — consider 5–30 for most agents", s.MaxIterations))
 	} else {
-		r.add(SeverityInfo, "max_iterations", fmt.Sprintf("✓ %d", s.MaxIterations))
+		r.emit(cfg, "max-iterations.set", config.LevelInfo,
+			"max_iterations", fmt.Sprintf("✓ %d", s.MaxIterations))
 	}
 
 	// execution_mode
 	switch s.ExecutionMode {
 	case "", "sequential":
-		r.add(SeverityInfo, "execution_mode", fmt.Sprintf("✓ %s", orDefault(s.ExecutionMode, "sequential")))
+		r.emit(cfg, "execution-mode.valid", config.LevelInfo,
+			"execution_mode", fmt.Sprintf("✓ %s", orDefault(s.ExecutionMode, "sequential")))
 	case "agentic":
-		r.add(SeverityInfo, "execution_mode", "✓ agentic")
+		r.emit(cfg, "execution-mode.valid", config.LevelInfo,
+			"execution_mode", "✓ agentic")
 	default:
-		r.add(SeverityError, "execution_mode",
+		r.emit(cfg, "execution-mode.valid", config.LevelError,
+			"execution_mode",
 			fmt.Sprintf("%q is not valid — must be \"sequential\" or \"agentic\"", s.ExecutionMode))
 	}
 }
 
-// Model 
+// ── Model ─────────────────────────────────────────────────────────────────────
 
-func checkModel(r *Report, s *parser.Spec) {
+func checkModel(r *Report, s *parser.Spec, cfg *config.Config) {
 	m := s.Model
 
-	// provider
 	validProviders := map[string]bool{
 		"openai": true, "groq": true, "anthropic": true,
 		"google": true, "ollama": true,
 	}
+
 	if m.Provider == "" {
-		r.add(SeverityError, "model.provider", "required — e.g. \"groq\", \"openai\", \"anthropic\"")
+		r.emit(cfg, "model.provider.required", config.LevelError,
+			"model.provider", "required — e.g. \"groq\", \"openai\", \"anthropic\"")
 	} else if !validProviders[strings.ToLower(m.Provider)] {
-		r.add(SeverityWarning, "model.provider",
+		r.emit(cfg, "model.provider.known", config.LevelWarn,
+			"model.provider",
 			fmt.Sprintf("%q is not a known provider — known: openai, groq, anthropic, google, ollama", m.Provider))
 	} else {
-		r.add(SeverityInfo, "model.provider", fmt.Sprintf("✓ %s", m.Provider))
+		r.emit(cfg, "model.provider.required", config.LevelInfo,
+			"model.provider", fmt.Sprintf("✓ %s", m.Provider))
 	}
 
-	// name
 	if m.Name == "" {
-		r.add(SeverityError, "model.name", "required — e.g. \"llama-3.3-70b-versatile\", \"gpt-4o\"")
+		r.emit(cfg, "model.name.required", config.LevelError,
+			"model.name", "required — e.g. \"llama-3.3-70b-versatile\", \"gpt-4o\"")
 	} else {
-		r.add(SeverityInfo, "model.name", fmt.Sprintf("✓ %s", m.Name))
+		r.emit(cfg, "model.name.required", config.LevelInfo,
+			"model.name", fmt.Sprintf("✓ %s", m.Name))
 	}
 
-	// temperature
 	if m.Temperature < 0 || m.Temperature > 2 {
-		r.add(SeverityError, "model.temperature",
+		r.emit(cfg, "model.temperature.range", config.LevelError,
+			"model.temperature",
 			fmt.Sprintf("%.2f is out of range — must be between 0.0 and 2.0", m.Temperature))
 	}
 
-	// authentication
 	if m.Authentication == nil {
-		r.add(SeverityWarning, "model.authentication",
+		r.emit(cfg, "model.auth.set", config.LevelWarn,
+			"model.authentication",
 			"not set — agent will rely on server-side env vars for the API key")
 	} else {
 		auth := m.Authentication
 		switch auth.Type {
 		case "api-key":
 			if auth.APIKey == "" {
-				r.add(SeverityError, "model.authentication.api_key",
+				r.emit(cfg, "model.auth.api-key.empty", config.LevelError,
+					"model.authentication.api_key",
 					"api_key is empty — use \"${env:YOUR_KEY_VAR}\" to reference an env variable")
 			} else if !reEnvPlaceholder.MatchString(auth.APIKey) {
-				r.add(SeverityWarning, "model.authentication.api_key",
+				r.emit(cfg, "model.auth.api-key.hardcoded", config.LevelWarn,
+					"model.authentication.api_key",
 					"api_key looks like a hardcoded value — use \"${env:VAR_NAME}\" instead")
 			} else {
-				r.add(SeverityInfo, "model.authentication.api_key", fmt.Sprintf("✓ %s", auth.APIKey))
+				r.emit(cfg, "model.auth.api-key.empty", config.LevelInfo,
+					"model.authentication.api_key", fmt.Sprintf("✓ %s", auth.APIKey))
 			}
 		case "bearer":
 			if auth.Token == "" {
-				r.add(SeverityError, "model.authentication.token", "token is empty for bearer auth")
+				r.emit(cfg, "model.auth.bearer.empty", config.LevelError,
+					"model.authentication.token", "token is empty for bearer auth")
 			}
 		case "none", "":
-			r.add(SeverityInfo, "model.authentication.type", "no auth configured")
+			r.emit(cfg, "model.auth.set", config.LevelInfo,
+				"model.authentication.type", "no auth configured")
 		default:
-			r.add(SeverityWarning, "model.authentication.type",
+			r.emit(cfg, "model.auth.type.known", config.LevelWarn,
+				"model.authentication.type",
 				fmt.Sprintf("%q is not a known auth type — use api-key, bearer, or none", auth.Type))
 		}
 	}
 }
 
-// Markdown sections 
+// ── Markdown sections ─────────────────────────────────────────────────────────
 
-func checkSections(r *Report, s *parser.Spec) {
+func checkSections(r *Report, s *parser.Spec, cfg *config.Config) {
 	// Role
 	if strings.TrimSpace(s.Role) == "" {
-		r.add(SeverityError, "# Role", "section is missing or empty — required for all agents")
+		r.emit(cfg, "role.required", config.LevelError,
+			"# Role", "section is missing or empty — required for all agents")
 	} else if len(s.Role) < 50 {
-		r.add(SeverityWarning, "# Role",
+		r.emit(cfg, "role.length", config.LevelWarn,
+			"# Role",
 			fmt.Sprintf("very short (%d chars) — describe the agent's persona and expertise in detail", len(s.Role)))
 	} else if !strings.Contains(strings.ToLower(s.Role), "you are") {
-		r.add(SeverityWarning, "# Role", "should start with \"You are...\" to set the agent's persona clearly")
+		r.emit(cfg, "role.you-are", config.LevelWarn,
+			"# Role", "should start with \"You are...\" to set the agent's persona clearly")
 	} else {
-		r.add(SeverityInfo, "# Role", fmt.Sprintf("✓ %d chars", len(s.Role)))
+		r.emit(cfg, "role.required", config.LevelInfo,
+			"# Role", fmt.Sprintf("✓ %d chars", len(s.Role)))
 	}
 
 	// Instructions
 	if strings.TrimSpace(s.Instructions) == "" {
-		r.add(SeverityError, "# Instructions", "section is missing or empty — required for all agents")
+		r.emit(cfg, "instructions.required", config.LevelError,
+			"# Instructions", "section is missing or empty — required for all agents")
 	} else if len(s.Instructions) < 100 {
-		r.add(SeverityWarning, "# Instructions",
+		r.emit(cfg, "instructions.length", config.LevelWarn,
+			"# Instructions",
 			fmt.Sprintf("very short (%d chars) — add step-by-step instructions with ## headings", len(s.Instructions)))
 	} else {
-		r.add(SeverityInfo, "# Instructions", fmt.Sprintf("✓ %d chars", len(s.Instructions)))
+		r.emit(cfg, "instructions.required", config.LevelInfo,
+			"# Instructions", fmt.Sprintf("✓ %d chars", len(s.Instructions)))
 	}
 
-	// Enforcement (optional but recommended)
+	// Enforcement
 	if strings.TrimSpace(s.Enforcement) == "" {
-		r.add(SeverityInfo, "# Enforcement", "not set — consider adding hard rules the agent must follow")
+		r.emit(cfg, "enforcement.set", config.LevelInfo,
+			"# Enforcement", "not set — consider adding hard rules the agent must follow")
 	} else {
-		r.add(SeverityInfo, "# Enforcement", fmt.Sprintf("✓ %d chars", len(s.Enforcement)))
+		r.emit(cfg, "enforcement.set", config.LevelInfo,
+			"# Enforcement", fmt.Sprintf("✓ %d chars", len(s.Enforcement)))
 	}
 }
 
-// Tools 
+// ── Tools ─────────────────────────────────────────────────────────────────────
 
-func checkTools(r *Report, s *parser.Spec) {
+func checkTools(r *Report, s *parser.Spec, cfg *config.Config) {
 	if s.Tools == nil {
-		return // tools are optional
+		return
 	}
 
 	var toolList []interface{}
@@ -244,14 +306,15 @@ func checkTools(r *Report, s *parser.Spec) {
 	}
 
 	if len(toolList) == 0 {
-		r.add(SeverityInfo, "tools", "tools block is present but empty")
+		r.emit(cfg, "tools.empty", config.LevelInfo, "tools", "tools block is present but empty")
 		return
 	}
 
 	for i, t := range toolList {
 		tool, ok := t.(map[string]interface{})
 		if !ok {
-			r.add(SeverityError, fmt.Sprintf("tools[%d]", i), "tool entry is not a valid object")
+			r.emit(cfg, "tools.valid", config.LevelError,
+				fmt.Sprintf("tools[%d]", i), "tool entry is not a valid object")
 			continue
 		}
 
@@ -261,17 +324,18 @@ func checkTools(r *Report, s *parser.Spec) {
 			prefix = fmt.Sprintf("tools.%s", name)
 		}
 
-		// name
 		if strings.TrimSpace(name) == "" {
-			r.add(SeverityError, prefix+".name", "tool must have a name")
+			r.emit(cfg, "tool.name.required", config.LevelError,
+				prefix+".name", "tool must have a name")
 		} else {
-			r.add(SeverityInfo, prefix+".name", fmt.Sprintf("✓ %q", name))
+			r.emit(cfg, "tool.name.required", config.LevelInfo,
+				prefix+".name", fmt.Sprintf("✓ %q", name))
 		}
 
-		// transport
 		transport, hasTransport := tool["transport"].(map[string]interface{})
 		if !hasTransport {
-			r.add(SeverityError, prefix+".transport", "transport is required")
+			r.emit(cfg, "tool.transport.required", config.LevelError,
+				prefix+".transport", "transport is required")
 			continue
 		}
 
@@ -280,61 +344,71 @@ func checkTools(r *Report, s *parser.Spec) {
 		case "http":
 			url, _ := transport["url"].(string)
 			if url == "" {
-				r.add(SeverityError, prefix+".transport.url", "url is required for HTTP transport")
+				r.emit(cfg, "tool.transport.url.required", config.LevelError,
+					prefix+".transport.url", "url is required for HTTP transport")
 			} else {
-				r.add(SeverityInfo, prefix+".transport.url", fmt.Sprintf("✓ %s", url))
+				r.emit(cfg, "tool.transport.url.required", config.LevelInfo,
+					prefix+".transport.url", fmt.Sprintf("✓ %s", url))
 			}
 		case "stdio":
 			cmd, _ := transport["command"].(string)
 			if cmd == "" {
-				r.add(SeverityError, prefix+".transport.command", "command is required for stdio transport")
+				r.emit(cfg, "tool.transport.command.required", config.LevelError,
+					prefix+".transport.command", "command is required for stdio transport")
 			} else {
-				r.add(SeverityInfo, prefix+".transport.command", fmt.Sprintf("✓ %s", cmd))
+				r.emit(cfg, "tool.transport.command.required", config.LevelInfo,
+					prefix+".transport.command", fmt.Sprintf("✓ %s", cmd))
 			}
 		case "":
-			r.add(SeverityError, prefix+".transport.type", "transport type is required — use \"http\" or \"stdio\"")
+			r.emit(cfg, "tool.transport.type.required", config.LevelError,
+				prefix+".transport.type", "transport type is required — use \"http\" or \"stdio\"")
 		default:
-			r.add(SeverityWarning, prefix+".transport.type",
+			r.emit(cfg, "tool.transport.type.known", config.LevelWarn,
+				prefix+".transport.type",
 				fmt.Sprintf("%q is not a known transport type — use \"http\" or \"stdio\"", tType))
 		}
 
-		// authentication
 		if auth, ok := tool["authentication"].(map[string]interface{}); ok {
 			authType, _ := auth["type"].(string)
 			switch authType {
 			case "api-key":
 				key, _ := auth["api_key"].(string)
 				if key == "" {
-					r.add(SeverityError, prefix+".authentication.api_key",
-						"api_key is empty — use \"${env:VAR_NAME}\"")
+					r.emit(cfg, "tool.auth.api-key.empty", config.LevelError,
+						prefix+".authentication.api_key", "api_key is empty — use \"${env:VAR_NAME}\"")
 				} else if !reEnvPlaceholder.MatchString(key) {
-					r.add(SeverityWarning, prefix+".authentication.api_key",
+					r.emit(cfg, "tool.auth.api-key.hardcoded", config.LevelWarn,
+						prefix+".authentication.api_key",
 						"looks like a hardcoded key — use \"${env:VAR_NAME}\" instead")
 				}
 			case "bearer":
 				token, _ := auth["token"].(string)
 				if token == "" {
-					r.add(SeverityError, prefix+".authentication.token", "token is empty for bearer auth")
+					r.emit(cfg, "tool.auth.bearer.empty", config.LevelError,
+						prefix+".authentication.token", "token is empty for bearer auth")
 				}
 			case "basic":
 				user, _ := auth["username"].(string)
 				pass, _ := auth["password"].(string)
 				if user == "" {
-					r.add(SeverityError, prefix+".authentication.username", "username is required for basic auth")
+					r.emit(cfg, "tool.auth.basic.username", config.LevelError,
+						prefix+".authentication.username", "username is required for basic auth")
 				}
 				if pass == "" {
-					r.add(SeverityError, prefix+".authentication.password", "password is required for basic auth")
+					r.emit(cfg, "tool.auth.basic.password", config.LevelError,
+						prefix+".authentication.password", "password is required for basic auth")
 				}
 			}
 		}
 	}
 }
 
-// Interfaces 
+// ── Interfaces ────────────────────────────────────────────────────────────────
 
-func checkInterfaces(r *Report, s *parser.Spec) {
+func checkInterfaces(r *Report, s *parser.Spec, cfg *config.Config) {
 	if len(s.Interfaces) == 0 {
-		r.add(SeverityInfo, "interfaces", "not set — agent will default to consolechat")
+		r.emit(cfg, "interfaces.set", config.LevelInfo,
+			"interfaces", "not set — agent will default to consolechat")
 		return
 	}
 
@@ -345,68 +419,76 @@ func checkInterfaces(r *Report, s *parser.Spec) {
 	for i, iface := range s.Interfaces {
 		prefix := fmt.Sprintf("interfaces[%d]", i)
 		if iface.Type == "" {
-			r.add(SeverityError, prefix+".type", "interface type is required")
+			r.emit(cfg, "interface.type.required", config.LevelError,
+				prefix+".type", "interface type is required")
 		} else if !validTypes[iface.Type] {
-			r.add(SeverityWarning, prefix+".type",
+			r.emit(cfg, "interface.type.known", config.LevelWarn,
+				prefix+".type",
 				fmt.Sprintf("%q is not a known interface type — use webchat, consolechat, or webhook", iface.Type))
 		} else {
-			r.add(SeverityInfo, prefix+".type", fmt.Sprintf("✓ %s", iface.Type))
+			r.emit(cfg, "interface.type.required", config.LevelInfo,
+				prefix+".type", fmt.Sprintf("✓ %s", iface.Type))
 		}
 
-		// webhook-specific checks
-		if iface.Type == "webhook" {
-			if iface.Prompt == "" {
-				r.add(SeverityWarning, prefix+".prompt",
-					"webhook interface should have a prompt template with ${http:payload.*} placeholders")
-			}
+		if iface.Type == "webhook" && iface.Prompt == "" {
+			r.emit(cfg, "interface.webhook.prompt", config.LevelWarn,
+				prefix+".prompt",
+				"webhook interface should have a prompt template with ${http:payload.*} placeholders")
 		}
 	}
 }
 
-// Skills 
+// ── Skills ────────────────────────────────────────────────────────────────────
 
-func checkSkills(r *Report, s *parser.Spec) {
+func checkSkills(r *Report, s *parser.Spec, cfg *config.Config) {
 	for i, skill := range s.Skills {
 		prefix := fmt.Sprintf("skills[%d]", i)
 		switch skill.Type {
 		case "local":
 			if skill.Path == "" {
-				r.add(SeverityError, prefix+".path", "path is required for local skills")
+				r.emit(cfg, "skill.local.path", config.LevelError,
+					prefix+".path", "path is required for local skills")
 			} else {
-				r.add(SeverityInfo, prefix+".path", fmt.Sprintf("✓ %s", skill.Path))
+				r.emit(cfg, "skill.local.path", config.LevelInfo,
+					prefix+".path", fmt.Sprintf("✓ %s", skill.Path))
 			}
 		case "remote":
 			if skill.URL == "" {
-				r.add(SeverityError, prefix+".url", "url is required for remote skills")
+				r.emit(cfg, "skill.remote.url", config.LevelError,
+					prefix+".url", "url is required for remote skills")
 			} else {
-				r.add(SeverityInfo, prefix+".url", fmt.Sprintf("✓ %s", skill.URL))
+				r.emit(cfg, "skill.remote.url", config.LevelInfo,
+					prefix+".url", fmt.Sprintf("✓ %s", skill.URL))
 			}
 		case "":
-			r.add(SeverityError, prefix+".type", "skill type is required — use \"local\" or \"remote\"")
+			r.emit(cfg, "skill.type.required", config.LevelError,
+				prefix+".type", "skill type is required — use \"local\" or \"remote\"")
 		default:
-			r.add(SeverityWarning, prefix+".type",
+			r.emit(cfg, "skill.type.known", config.LevelWarn,
+				prefix+".type",
 				fmt.Sprintf("%q is not a known skill type — use \"local\" or \"remote\"", skill.Type))
 		}
 	}
 }
 
-// Output Schema 
+// ── Output Schema ─────────────────────────────────────────────────────────────
 
-func checkOutputSchema(r *Report, s *parser.Spec) {
+func checkOutputSchema(r *Report, s *parser.Spec, cfg *config.Config) {
 	if s.OutputSchema == "" {
-		return // optional
+		return
 	}
-	// Validate it's parseable JSON
 	var js interface{}
 	if err := json.Unmarshal([]byte(s.OutputSchema), &js); err != nil {
-		r.add(SeverityError, "# Output Schema",
+		r.emit(cfg, "output-schema.valid-json", config.LevelError,
+			"# Output Schema",
 			fmt.Sprintf("JSON in output schema is not valid: %v", err))
 	} else {
-		r.add(SeverityInfo, "# Output Schema", "✓ valid JSON")
+		r.emit(cfg, "output-schema.valid-json", config.LevelInfo,
+			"# Output Schema", "✓ valid JSON")
 	}
 }
 
-// helpers
+// ── helpers ───────────────────────────────────────────────────────────────────
 
 func orDefault(s, def string) string {
 	if s == "" {
