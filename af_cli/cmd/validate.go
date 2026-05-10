@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/agentfactory/cli/config"
 	"github.com/agentfactory/cli/parser"
 	"github.com/agentfactory/cli/validator"
 )
@@ -22,9 +23,16 @@ const (
 )
 
 // Validate reads, parses, and validates a .md agent spec file.
+// Accepts an optional explicit config path (empty string = auto-discover).
 // Exits with code 1 if any errors are found.
-func Validate(file string) {
-	// Read file
+func Validate(file, configPath string) {
+	// Load config (.afvalidate.toml)
+	cfg, cfgPath, err := config.Load(configPath, file)
+	if err != nil {
+		fatalf("config error: %v", err)
+	}
+
+	// Read spec file
 	data, err := os.ReadFile(file)
 	if err != nil {
 		fatalf("cannot read file: %v", err)
@@ -37,11 +45,15 @@ func Validate(file string) {
 	}
 
 	// Validate
-	report := validator.Validate(file, spec)
+	report := validator.Validate(file, spec, cfg)
 
 	// Print header
 	fmt.Printf("\n%s%sAgentFactory Spec Validator%s\n", colorBold, colorCyan, colorReset)
-	fmt.Printf("%s%s%s\n\n", colorDim, file, colorReset)
+	fmt.Printf("%s%s%s\n", colorDim, file, colorReset)
+	if cfgPath != "" {
+		fmt.Printf("%sconfig: %s%s\n", colorDim, cfgPath, colorReset)
+	}
+	fmt.Println()
 
 	// Print results grouped by severity
 	printGroup(report, validator.SeverityError, colorRed, "✗ Errors")
@@ -71,15 +83,14 @@ func printGroup(report *validator.Report, sev validator.Severity, color, label s
 
 	fmt.Printf("%s%s%s%s (%d)\n", colorBold, color, label, colorReset, len(items))
 	for _, r := range items {
-		fmt.Printf("  %s%-35s%s %s\n",
-			colorDim, r.Field+colorReset, colorReset, r.Message)
+		fmt.Printf("  %s[%s]%s %-30s %s\n",
+			colorDim, r.RuleID, colorReset, r.Field, r.Message)
 	}
 	fmt.Println()
 }
 
 func printSummary(report *validator.Report) {
 	parts := []string{}
-
 	if report.Errors > 0 {
 		parts = append(parts, fmt.Sprintf("%s%s%d error(s)%s", colorBold, colorRed, report.Errors, colorReset))
 	}

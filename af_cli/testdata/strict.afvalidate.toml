@@ -1,0 +1,6 @@
+# Strict team config — description is required, role.you-are is an error
+[rules]
+"description.set"   = "error"   # upgrade: warn → error
+"role.you-are"      = "error"   # upgrade: warn → error
+"enforcement.set"   = "warn"    # upgrade: info → warn
+"version.semver"    = "off"     # disable semver check entirely
