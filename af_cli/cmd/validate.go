@@ -160,8 +160,12 @@ func printGroup(report *validator.Report, sev validator.Severity, color, label s
 
 	fmt.Printf("%s%s%s%s (%d)\n", colorBold, color, label, colorReset, len(items))
 	for _, r := range items {
-		fmt.Printf("  %s[%s]%s %-30s %s\n",
-			colorDim, r.RuleID, colorReset, r.Field, r.Message)
+		loc := ""
+		if r.Line > 0 {
+			loc = fmt.Sprintf("%s:%d:%d%s", colorDim, r.Line, r.Col, colorReset)
+		}
+		fmt.Printf("  %s[%s]%s %-30s %-10s %s\n",
+			colorDim, r.RuleID, colorReset, r.Field, loc, r.Message)
 	}
 	fmt.Println()
 }

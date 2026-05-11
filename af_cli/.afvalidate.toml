@@ -168,3 +168,8 @@
 
 # output schema JSON is valid
 # "output-schema.valid-json" = "error"
+
+# ── Typo Detection ────────────────────────────────────────────────────────────
+
+# unknown key that looks like a misspelling of a known key
+# "key.typo" = "error"
