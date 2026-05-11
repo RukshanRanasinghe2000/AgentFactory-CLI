@@ -78,7 +78,7 @@
 # ── Sections ──────────────────────────────────────────────────────────────────
 
 # # Role section is present and non-empty (required)
-# "role.required" = "error"
+"role.required" = "error"
 
 # # Role section is at least 50 characters
 # "role.length" = "warn"
@@ -86,14 +86,14 @@
 # # Role section contains "you are" (persona convention)
 # "role.you-are" = "warn"
 
-# # Instructions section is present and non-empty (required)
-# "instructions.required" = "error"
+# # Instructions section is present and non-empty (default: warn)
+"instructions.required" = "info"
 
 # # Instructions section is at least 100 characters
 # "instructions.length" = "warn"
 
 # # Enforcement section is present
-# "enforcement.set" = "info"
+"enforcement.set" = "warn"
 
 # ── Tools ─────────────────────────────────────────────────────────────────────
 
