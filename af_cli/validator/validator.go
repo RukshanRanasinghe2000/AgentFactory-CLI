@@ -184,7 +184,7 @@ func checkFrontmatter(r *Report, s *parser.Spec, cfg *config.Config) {
 		r.emit(cfg, s, "spec-version.format", config.LevelWarn,
 			"spec_version", fmt.Sprintf("unexpected format %q — expected e.g. \"0.3.0\"", s.SpecVersion))
 	} else {
-		r.emit(cfg, s, "spec-version.set", config.LevelInfo,
+		r.emit(cfg, s, "spec-version.set.ok", config.LevelInfo,
 			"spec_version", fmt.Sprintf("✓ %s", s.SpecVersion))
 	}
 
@@ -196,7 +196,7 @@ func checkFrontmatter(r *Report, s *parser.Spec, cfg *config.Config) {
 		r.emit(cfg, s, "name.length", config.LevelWarn,
 			"name", "name is very long — keep it under 80 characters")
 	} else {
-		r.emit(cfg, s, "name.required", config.LevelInfo,
+		r.emit(cfg, s, "name.required.ok", config.LevelInfo,
 			"name", fmt.Sprintf("✓ %q", s.Name))
 	}
 
@@ -208,7 +208,7 @@ func checkFrontmatter(r *Report, s *parser.Spec, cfg *config.Config) {
 		r.emit(cfg, s, "version.semver", config.LevelWarn,
 			"version", fmt.Sprintf("%q is not a valid semver — expected e.g. \"1.0.0\"", s.Version))
 	} else {
-		r.emit(cfg, s, "version.set", config.LevelInfo,
+		r.emit(cfg, s, "version.set.ok", config.LevelInfo,
 			"version", fmt.Sprintf("✓ %s", s.Version))
 	}
 
@@ -217,7 +217,7 @@ func checkFrontmatter(r *Report, s *parser.Spec, cfg *config.Config) {
 		r.emit(cfg, s, "description.set", config.LevelWarn,
 			"description", "empty — add a one-sentence description of what this agent does")
 	} else {
-		r.emit(cfg, s, "description.set", config.LevelInfo,
+		r.emit(cfg, s, "description.set.ok", config.LevelInfo,
 			"description", "✓ present")
 	}
 
@@ -232,17 +232,17 @@ func checkFrontmatter(r *Report, s *parser.Spec, cfg *config.Config) {
 		r.emit(cfg, s, "max-iterations.max", config.LevelWarn,
 			"max_iterations", fmt.Sprintf("%d is very high — consider 5–30 for most agents", s.MaxIterations))
 	} else {
-		r.emit(cfg, s, "max-iterations.set", config.LevelInfo,
+		r.emit(cfg, s, "max-iterations.set.ok", config.LevelInfo,
 			"max_iterations", fmt.Sprintf("✓ %d", s.MaxIterations))
 	}
 
 	// execution_mode
 	switch s.ExecutionMode {
 	case "", "sequential":
-		r.emit(cfg, s, "execution-mode.valid", config.LevelInfo,
+		r.emit(cfg, s, "execution-mode.valid.ok", config.LevelInfo,
 			"execution_mode", fmt.Sprintf("✓ %s", orDefault(s.ExecutionMode, "sequential")))
 	case "agentic":
-		r.emit(cfg, s, "execution-mode.valid", config.LevelInfo,
+		r.emit(cfg, s, "execution-mode.valid.ok", config.LevelInfo,
 			"execution_mode", "✓ agentic")
 	default:
 		r.emit(cfg, s, "execution-mode.valid", config.LevelError,
@@ -271,7 +271,7 @@ func checkModel(r *Report, s *parser.Spec, cfg *config.Config) {
 			"model.provider",
 			fmt.Sprintf("%q is not a known provider — known: openai, groq, anthropic, google, ollama", m.Provider))
 	} else {
-		r.emit(cfg, s, "model.provider.required", config.LevelInfo,
+		r.emit(cfg, s, "model.provider.required.ok", config.LevelInfo,
 			"model.provider", fmt.Sprintf("✓ %s", m.Provider))
 	}
 
@@ -279,7 +279,7 @@ func checkModel(r *Report, s *parser.Spec, cfg *config.Config) {
 		r.emit(cfg, s, "model.name.required", config.LevelError,
 			"model.name", "required — e.g. \"llama-3.3-70b-versatile\", \"gpt-4o\"")
 	} else {
-		r.emit(cfg, s, "model.name.required", config.LevelInfo,
+		r.emit(cfg, s, "model.name.required.ok", config.LevelInfo,
 			"model.name", fmt.Sprintf("✓ %s", m.Name))
 	}
 
@@ -306,7 +306,7 @@ func checkModel(r *Report, s *parser.Spec, cfg *config.Config) {
 					"model.authentication.api_key",
 					"api_key looks like a hardcoded value — use \"${env:VAR_NAME}\" instead")
 			} else {
-				r.emit(cfg, s, "model.auth.api-key.empty", config.LevelInfo,
+				r.emit(cfg, s, "model.auth.api-key.empty.ok", config.LevelInfo,
 					"model.authentication.api_key", fmt.Sprintf("✓ %s", auth.APIKey))
 			}
 		case "bearer":
@@ -315,7 +315,7 @@ func checkModel(r *Report, s *parser.Spec, cfg *config.Config) {
 					"model.authentication.token", "token is empty for bearer auth")
 			}
 		case "none", "":
-			r.emit(cfg, s, "model.auth.set", config.LevelInfo,
+			r.emit(cfg, s, "model.auth.set.ok", config.LevelInfo,
 				"model.authentication.type", "no auth configured")
 		default:
 			r.emit(cfg, s, "model.auth.type.known", config.LevelWarn,
@@ -342,19 +342,19 @@ func checkSections(r *Report, s *parser.Spec, cfg *config.Config) {
 		r.emit(cfg, s, "role.you-are", config.LevelWarn,
 			"# Role", "should start with \"You are...\" to set the agent's persona clearly")
 	} else {
-		r.emit(cfg, s, "role.required", config.LevelInfo,
+		r.emit(cfg, s, "role.required.ok", config.LevelInfo,
 			"# Role", fmt.Sprintf("✓ %d chars", len(s.Role)))
 	}
 
 	if strings.TrimSpace(s.Instructions) == "" {
-		r.emit(cfg, s, "instructions.required", config.LevelError,
-			"# Instructions", "section is missing or empty — required for all agents")
+		r.emit(cfg, s, "instructions.required", config.LevelWarn,
+			"# Instructions", "section is missing or empty — add step-by-step instructions")
 	} else if len(s.Instructions) < 100 {
 		r.emit(cfg, s, "instructions.length", config.LevelWarn,
 			"# Instructions",
 			fmt.Sprintf("very short (%d chars) — add step-by-step instructions with ## headings", len(s.Instructions)))
 	} else {
-		r.emit(cfg, s, "instructions.required", config.LevelInfo,
+		r.emit(cfg, s, "instructions.required.ok", config.LevelInfo,
 			"# Instructions", fmt.Sprintf("✓ %d chars", len(s.Instructions)))
 	}
 
@@ -362,7 +362,7 @@ func checkSections(r *Report, s *parser.Spec, cfg *config.Config) {
 		r.emit(cfg, s, "enforcement.set", config.LevelInfo,
 			"# Enforcement", "not set — consider adding hard rules the agent must follow")
 	} else {
-		r.emit(cfg, s, "enforcement.set", config.LevelInfo,
+		r.emit(cfg, s, "enforcement.set.ok", config.LevelInfo,
 			"# Enforcement", fmt.Sprintf("✓ %d chars", len(s.Enforcement)))
 	}
 }
@@ -413,7 +413,7 @@ func checkTools(r *Report, s *parser.Spec, cfg *config.Config) {
 			r.emit(cfg, s, "tool.name.required", config.LevelError,
 				prefix+".name", "tool must have a name")
 		} else {
-			r.emit(cfg, s, "tool.name.required", config.LevelInfo,
+			r.emit(cfg, s, "tool.name.required.ok", config.LevelInfo,
 				prefix+".name", fmt.Sprintf("✓ %q", name))
 		}
 
@@ -432,7 +432,7 @@ func checkTools(r *Report, s *parser.Spec, cfg *config.Config) {
 				r.emit(cfg, s, "tool.transport.url.required", config.LevelError,
 					prefix+".transport.url", "url is required for HTTP transport")
 			} else {
-				r.emit(cfg, s, "tool.transport.url.required", config.LevelInfo,
+				r.emit(cfg, s, "tool.transport.url.required.ok", config.LevelInfo,
 					prefix+".transport.url", fmt.Sprintf("✓ %s", url))
 			}
 		case "stdio":
@@ -441,7 +441,7 @@ func checkTools(r *Report, s *parser.Spec, cfg *config.Config) {
 				r.emit(cfg, s, "tool.transport.command.required", config.LevelError,
 					prefix+".transport.command", "command is required for stdio transport")
 			} else {
-				r.emit(cfg, s, "tool.transport.command.required", config.LevelInfo,
+				r.emit(cfg, s, "tool.transport.command.required.ok", config.LevelInfo,
 					prefix+".transport.command", fmt.Sprintf("✓ %s", cmd))
 			}
 		case "":
@@ -511,7 +511,7 @@ func checkInterfaces(r *Report, s *parser.Spec, cfg *config.Config) {
 				prefix+".type",
 				fmt.Sprintf("%q is not a known interface type — use webchat, consolechat, or webhook", iface.Type))
 		} else {
-			r.emit(cfg, s, "interface.type.required", config.LevelInfo,
+			r.emit(cfg, s, "interface.type.required.ok", config.LevelInfo,
 				prefix+".type", fmt.Sprintf("✓ %s", iface.Type))
 		}
 
@@ -534,7 +534,7 @@ func checkSkills(r *Report, s *parser.Spec, cfg *config.Config) {
 				r.emit(cfg, s, "skill.local.path", config.LevelError,
 					prefix+".path", "path is required for local skills")
 			} else {
-				r.emit(cfg, s, "skill.local.path", config.LevelInfo,
+				r.emit(cfg, s, "skill.local.path.ok", config.LevelInfo,
 					prefix+".path", fmt.Sprintf("✓ %s", skill.Path))
 			}
 		case "remote":
@@ -542,7 +542,7 @@ func checkSkills(r *Report, s *parser.Spec, cfg *config.Config) {
 				r.emit(cfg, s, "skill.remote.url", config.LevelError,
 					prefix+".url", "url is required for remote skills")
 			} else {
-				r.emit(cfg, s, "skill.remote.url", config.LevelInfo,
+				r.emit(cfg, s, "skill.remote.url.ok", config.LevelInfo,
 					prefix+".url", fmt.Sprintf("✓ %s", skill.URL))
 			}
 		case "":
@@ -568,7 +568,7 @@ func checkOutputSchema(r *Report, s *parser.Spec, cfg *config.Config) {
 			"# Output Schema",
 			fmt.Sprintf("JSON in output schema is not valid: %v", err))
 	} else {
-		r.emit(cfg, s, "output-schema.valid-json", config.LevelInfo,
+		r.emit(cfg, s, "output-schema.valid-json.ok", config.LevelInfo,
 			"# Output Schema", "✓ valid JSON")
 	}
 }

@@ -245,6 +245,18 @@ func buildIndex(content string) (FieldIndex, []TypoHint) {
 					idx["# Enforcement"] = Position{Line: line, Col: 1}
 				case "output schema":
 					idx["# Output Schema"] = Position{Line: line, Col: 1}
+				default:
+					// Check if this heading looks like a misspelling of a known section.
+					known := []string{"role", "instructions", "enforcement", "output schema"}
+					if suggestion := suggestKey(heading, known); suggestion != "" {
+						typos = append(typos, TypoHint{
+							Line:       line,
+							Col:        1,
+							Found:      "# " + stripped[2:], // preserve original casing
+							Suggestion: "# " + strings.Title(suggestion),
+							Context:    "section heading",
+						})
+					}
 				}
 			}
 			continue

@@ -27,6 +27,7 @@ const (
 // Accepts an optional explicit config path (empty string = auto-discover).
 // Exits with code 1 if any errors are found.
 func Validate(file, configPath string) {
+	fmt.Println(configPath)
 	// Load config (.afvalidate.toml)
 	cfg, cfgPath, err := config.Load(configPath, file)
 	if err != nil {
@@ -155,6 +156,43 @@ func printGroup(report *validator.Report, sev validator.Severity, color, label s
 		}
 	}
 	if len(items) == 0 {
+		return
+	}
+
+	// For info severity, split into genuine passes (✓ prefix) and notices.
+	if sev == validator.SeverityInfo {
+		var passes, notices []validator.Result
+		for _, r := range items {
+			if strings.HasPrefix(r.Message, "✓") {
+				passes = append(passes, r)
+			} else {
+				notices = append(notices, r)
+			}
+		}
+		if len(notices) > 0 {
+			fmt.Printf("%s%sℹ Notices%s (%d)\n", colorBold, colorCyan, colorReset, len(notices))
+			for _, r := range notices {
+				loc := ""
+				if r.Line > 0 {
+					loc = fmt.Sprintf("%s:%d:%d%s", colorDim, r.Line, r.Col, colorReset)
+				}
+				fmt.Printf("  %s[%s]%s %-30s %-10s %s\n",
+					colorDim, r.RuleID, colorReset, r.Field, loc, r.Message)
+			}
+			fmt.Println()
+		}
+		if len(passes) > 0 {
+			fmt.Printf("%s%s%s%s (%d)\n", colorBold, color, label, colorReset, len(passes))
+			for _, r := range passes {
+				loc := ""
+				if r.Line > 0 {
+					loc = fmt.Sprintf("%s:%d:%d%s", colorDim, r.Line, r.Col, colorReset)
+				}
+				fmt.Printf("  %s[%s]%s %-30s %-10s %s\n",
+					colorDim, r.RuleID, colorReset, r.Field, loc, r.Message)
+			}
+			fmt.Println()
+		}
 		return
 	}
 
