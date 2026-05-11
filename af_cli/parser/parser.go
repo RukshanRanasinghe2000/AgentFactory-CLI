@@ -1,5 +1,5 @@
 // Package parser reads and parses AgentFactory .md spec files.
-// Handles YAML frontmatter + markdown sections (Role, Instructions, etc.)
+// It handles YAML frontmatter unmarshalling and markdown section extraction.
 // Position indexing and typo detection are delegated to the lexer package.
 package parser
 
@@ -13,13 +13,17 @@ import (
 )
 
 // Re-export lexer types so callers only need to import parser.
+// FieldIndex, Position, and TypoHint are defined in the lexer package.
 type FieldIndex = lexer.FieldIndex
 type Position = lexer.Position
 type TypoHint = lexer.TypoHint
 
-// Spec holds the parsed contents of an agent .md file.
+// Spec holds the fully parsed contents of an AgentFactory .md file.
+// Frontmatter fields are populated by YAML unmarshalling; markdown section
+// fields (Role, Instructions, Enforcement, OutputSchema) are extracted from
+// the body. Positions and TypoHints are produced by the lexer.
 type Spec struct {
-	// Frontmatter fields
+	// ── Frontmatter ──────────────────────────────────────────────────────────
 	SpecVersion   string      `yaml:"spec_version"`
 	Name          string      `yaml:"name"`
 	Description   string      `yaml:"description"`
@@ -34,19 +38,20 @@ type Spec struct {
 	Skills        []Skill     `yaml:"skills"`
 	Memory        MemorySpec  `yaml:"memory"`
 
-	// Markdown section fields (populated after parsing body)
+	// ── Markdown body sections ────────────────────────────────────────────────
 	Role         string
 	Instructions string
 	Enforcement  string
-	OutputSchema string // raw JSON from ```json block under # Output Schema
+	OutputSchema string // raw JSON extracted from the ```json block under # Output Schema
 
-	// Position index: maps a field key to its (line, col) in the source file.
+	// ── Lexer output ─────────────────────────────────────────────────────────
+	// Positions maps every known field path to its (line, col) in the source.
 	Positions FieldIndex
-
-	// TypoHints holds detected misspelled keys with suggested corrections.
+	// TypoHints holds misspelled keys detected by the lexer.
 	TypoHints []TypoHint
 }
 
+// ModelSpec holds the model configuration block from the frontmatter.
 type ModelSpec struct {
 	Provider       string    `yaml:"provider"`
 	Name           string    `yaml:"name"`
@@ -55,6 +60,8 @@ type ModelSpec struct {
 	Authentication *AuthSpec `yaml:"authentication"`
 }
 
+// AuthSpec holds authentication credentials for a model or tool.
+// The Type field selects the auth scheme: "api-key", "bearer", or "basic".
 type AuthSpec struct {
 	Type     string `yaml:"type"`
 	APIKey   string `yaml:"api_key"`
@@ -63,6 +70,8 @@ type AuthSpec struct {
 	Password string `yaml:"password"`
 }
 
+// Interface describes a single entry in the interfaces list.
+// Type must be one of "webchat", "consolechat", or "webhook".
 type Interface struct {
 	Type         string                 `yaml:"type"`
 	Prompt       string                 `yaml:"prompt"`
@@ -70,22 +79,27 @@ type Interface struct {
 	Subscription map[string]string      `yaml:"subscription"`
 }
 
+// Skill describes a local or remote skill attached to the agent.
 type Skill struct {
 	Type string `yaml:"type"`
 	Path string `yaml:"path"`
 	URL  string `yaml:"url"`
 }
 
+// MemorySpec holds the memory configuration block.
 type MemorySpec struct {
 	Type string `yaml:"type"`
 }
 
+// ToolMCP describes a single MCP tool entry inside the tools.mcp list.
 type ToolMCP struct {
 	Name      string        `yaml:"name"`
 	Transport ToolTransport `yaml:"transport"`
 	Auth      *AuthSpec     `yaml:"authentication"`
 }
 
+// ToolTransport describes how the agent connects to an MCP tool.
+// Type is "http" (URL required) or "stdio" (Command + Args required).
 type ToolTransport struct {
 	Type    string   `yaml:"type"`
 	URL     string   `yaml:"url"`
@@ -93,14 +107,24 @@ type ToolTransport struct {
 	Args    []string `yaml:"args"`
 }
 
+// Compiled regexes used during markdown body parsing.
 var (
+	// reFrontmatter matches the opening --- ... --- block at the start of the file.
 	reFrontmatter = regexp.MustCompile(`(?s)^---\s*\n(.*?)\n---\s*\n`)
-	reSeparator   = regexp.MustCompile(`\n---+\n`)
-	reHeading     = regexp.MustCompile(`(?s)^#\s+(.+?)\n(.*)`)
-	reCodeBlock   = regexp.MustCompile("(?s)```(?:json)?\\n([\\s\\S]*?)```")
+	// reSeparator splits the markdown body on --- dividers between sections.
+	reSeparator = regexp.MustCompile(`\n---+\n`)
+	// reHeading matches a top-level "# Heading\n body" pattern.
+	reHeading = regexp.MustCompile(`(?s)^#\s+(.+?)\n(.*)`)
+	// reCodeBlock extracts the content of a fenced ```json ... ``` block.
+	reCodeBlock = regexp.MustCompile("(?s)```(?:json)?\\n([\\s\\S]*?)```")
 )
 
-// ParseFile reads a .md spec file and returns a parsed Spec with position info.
+// ParseFile parses the raw content of an AgentFactory .md spec file and
+// returns a populated Spec. It normalises line endings, extracts and
+// unmarshals the YAML frontmatter, delegates source scanning to the lexer,
+// and then walks the markdown body to populate Role, Instructions,
+// Enforcement, and OutputSchema. Returns an error if the frontmatter is
+// missing or contains invalid YAML.
 func ParseFile(content string) (*Spec, error) {
 	content = strings.ReplaceAll(content, "\r\n", "\n")
 
@@ -114,12 +138,12 @@ func ParseFile(content string) (*Spec, error) {
 		return nil, fmt.Errorf("invalid YAML frontmatter: %w", err)
 	}
 
-	// Delegate scanning to the lexer
+	// Delegate position indexing and typo detection to the lexer.
 	result := lexer.Scan(content)
 	spec.Positions = result.Positions
 	spec.TypoHints = result.Typos
 
-	// Parse markdown body sections
+	// Walk the markdown body and populate section fields.
 	body := content[len(fm[0]):]
 	for _, seg := range reSeparator.Split(body, -1) {
 		seg = strings.TrimSpace(seg)

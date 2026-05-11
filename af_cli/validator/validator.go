@@ -40,10 +40,11 @@ type Report struct {
 	Infos    int
 }
 
-// emit adds a result after applying any config override for ruleID.
-// If the rule is set to "off" in config it is silently skipped.
-// pos is looked up from the spec's position index using the field name,
-// with fallback to the nearest parent path.
+// emit adds a result to the report after applying any config override for
+// ruleID. If the rule is set to "off" the result is silently discarded.
+// The source position is resolved from spec.Positions using field as the
+// lookup key, with automatic fallback to the nearest parent path when an
+// exact match is not found.
 func (r *Report) emit(cfg *config.Config, spec *parser.Spec, ruleID string, defaultLevel config.RuleLevel, field, msg string) {
 	effective := cfg.Resolve(ruleID, defaultLevel)
 	if effective == config.LevelOff {
@@ -72,8 +73,11 @@ func (r *Report) emit(cfg *config.Config, spec *parser.Spec, ruleID string, defa
 	}
 }
 
-// lookupPos tries the exact field key, then progressively strips the last
-// path segment to find the nearest parent that has a known position.
+// lookupPos resolves a source position for the given field path. It first
+// tries an exact match in idx, then progressively strips the last path
+// segment (dot-separated or bracket-indexed) until a match is found or the
+// path is exhausted. This allows "interfaces[0].type" to fall back to
+// "interfaces[0]" and then "interfaces" when the exact key is absent.
 func lookupPos(idx parser.FieldIndex, field string) parser.Position {
 	key := field
 	for key != "" {
@@ -92,6 +96,9 @@ func lookupPos(idx parser.FieldIndex, field string) parser.Position {
 	return parser.Position{}
 }
 
+// levelToSeverity converts a config.RuleLevel to the corresponding Severity
+// constant used in Result. LevelWarn maps to SeverityWarning; anything else
+// that is not LevelError maps to SeverityInfo.
 func levelToSeverity(l config.RuleLevel) Severity {
 	switch l {
 	case config.LevelError:
@@ -109,7 +116,10 @@ var (
 	reSpecVersion    = regexp.MustCompile(`^0\.[0-9]+\.[0-9]+$`)
 )
 
-// Validate runs all checks on a parsed spec and returns a Report.
+// Validate runs all validation checks on spec and returns a Report.
+// cfg controls which rules are active and at what severity; pass nil to use
+// built-in defaults. Checks run in order: typos, frontmatter, model,
+// sections, tools, interfaces, skills, output schema.
 func Validate(file string, spec *parser.Spec, cfg *config.Config) *Report {
 	if cfg == nil {
 		cfg = config.DefaultConfig()
@@ -130,6 +140,9 @@ func Validate(file string, spec *parser.Spec, cfg *config.Config) *Report {
 
 // ── Typo detection ────────────────────────────────────────────────────────────
 
+// checkTypos emits a key.typo error for every TypoHint collected by the
+// lexer. Each result carries the exact line and column of the misspelled key
+// and a "did you mean X?" suggestion.
 func checkTypos(r *Report, s *parser.Spec, cfg *config.Config) {
 	for _, t := range s.TypoHints {
 		effective := cfg.Resolve("key.typo", config.LevelError)
@@ -160,6 +173,8 @@ func checkTypos(r *Report, s *parser.Spec, cfg *config.Config) {
 
 // ── Frontmatter ───────────────────────────────────────────────────────────────
 
+// checkFrontmatter validates all top-level YAML frontmatter fields:
+// spec_version, name, version, description, max_iterations, and execution_mode.
 func checkFrontmatter(r *Report, s *parser.Spec, cfg *config.Config) {
 	// spec_version
 	if s.SpecVersion == "" {
@@ -238,6 +253,8 @@ func checkFrontmatter(r *Report, s *parser.Spec, cfg *config.Config) {
 
 // ── Model ─────────────────────────────────────────────────────────────────────
 
+// checkModel validates the model block: provider, name, temperature range,
+// and the authentication sub-block (type, api_key, token).
 func checkModel(r *Report, s *parser.Spec, cfg *config.Config) {
 	m := s.Model
 
@@ -310,6 +327,9 @@ func checkModel(r *Report, s *parser.Spec, cfg *config.Config) {
 
 // ── Markdown sections ─────────────────────────────────────────────────────────
 
+// checkSections validates the markdown body sections: # Role (required,
+// length, "you are" convention), # Instructions (required, length), and
+// # Enforcement (optional, info only).
 func checkSections(r *Report, s *parser.Spec, cfg *config.Config) {
 	if strings.TrimSpace(s.Role) == "" {
 		r.emit(cfg, s, "role.required", config.LevelError,
@@ -349,6 +369,10 @@ func checkSections(r *Report, s *parser.Spec, cfg *config.Config) {
 
 // ── Tools ─────────────────────────────────────────────────────────────────────
 
+// checkTools validates the tools block. It accepts both an array of tool
+// objects (frontend format) and a {mcp: [...]} map (YAML spec format).
+// For each tool it checks name, transport type and URL/command, and
+// authentication credentials.
 func checkTools(r *Report, s *parser.Spec, cfg *config.Config) {
 	if s.Tools == nil {
 		return

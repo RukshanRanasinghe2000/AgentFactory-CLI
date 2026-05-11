@@ -9,41 +9,48 @@ import (
 	"strings"
 )
 
-// FieldIndex maps a dotted field path to its source position.
+// FieldIndex maps a dotted field path (e.g. "model.authentication.api_key")
+// to its source position in the file.
 type FieldIndex map[string]Position
 
-// Position holds a 1-based line and column number.
+// Position holds a 1-based line and column number pointing to a key in the
+// source file. Line 0 means the position is unknown.
 type Position struct {
 	Line int
 	Col  int
 }
 
-// TypoHint describes a misspelled key found in the source file.
+// TypoHint describes a misspelled YAML key found during scanning.
+// Found is the key as written; Suggestion is the closest valid key.
 type TypoHint struct {
 	Line       int
 	Col        int
 	Found      string // the key as written in the file
-	Suggestion string // the correct key name
-	Context    string // e.g. "model", "interfaces[n]", "root"
+	Suggestion string // the closest valid key name
+	Context    string // parent context, e.g. "model", "interfaces[n]", "root"
 }
 
-// ScanResult is the output of Scan.
+// ScanResult is the combined output of a Scan call.
 type ScanResult struct {
+	// Positions maps every known field path to its source location.
 	Positions FieldIndex
-	Typos     []TypoHint
+	// Typos holds all misspelled keys detected during the scan.
+	Typos []TypoHint
 }
 
-// Scan walks the raw .md file content and returns a position index and any
-// typo hints found in the YAML frontmatter and markdown section headings.
+// Scan walks the raw .md file content, builds a position index for every
+// YAML key in the frontmatter and every markdown section heading, and
+// collects TypoHints for keys that look like misspellings of known keys.
 func Scan(content string) ScanResult {
 	idx, typos := buildIndex(content)
 	return ScanResult{Positions: idx, Typos: typos}
 }
 
-// Valid key registry 
+// ── Valid key registry ────────────────────────────────────────────────────────
 
-// validKeysForContext maps a parent context path to the set of valid child keys.
-// Indexed paths use [n] as a wildcard (e.g. "interfaces[n]").
+// validKeysForContext maps a parent context path to the set of valid child
+// keys at that level. Indexed paths use [n] as a wildcard so that
+// "interfaces[0]", "interfaces[1]", etc. all resolve to "interfaces[n]".
 var validKeysForContext = map[string][]string{
 	"root": {
 		"spec_version", "name", "description", "version", "license",
@@ -79,10 +86,14 @@ var validKeysForContext = map[string][]string{
 	},
 }
 
+// reIndex matches numeric list indices such as [0], [1], [12].
 var reIndex = regexp.MustCompile(`\[\d+\]`)
 
-// contextForPath returns the valid keys and context label for a given parent path.
-// Indexed segments like [0] are normalized to [n] before lookup.
+// contextForPath returns the set of valid child keys and a human-readable
+// context label for the given parent path. Numeric indices in parentPath are
+// normalised to [n] before the lookup so that "interfaces[0]" resolves to
+// the same entry as "interfaces[n]". Returns (nil, "") when the path is not
+// in the registry.
 func contextForPath(parentPath string) ([]string, string) {
 	if keys, ok := validKeysForContext[parentPath]; ok {
 		return keys, parentPath
@@ -97,9 +108,10 @@ func contextForPath(parentPath string) ([]string, string) {
 	return nil, ""
 }
 
-// Levenshtein / typo matching 
+// ── Levenshtein / typo matching ───────────────────────────────────────────────
 
-// levenshtein computes the edit distance between two strings.
+// levenshtein returns the minimum edit distance (insertions, deletions,
+// substitutions) required to transform string a into string b.
 func levenshtein(a, b string) int {
 	la, lb := len(a), len(b)
 	if la == 0 {
@@ -128,6 +140,7 @@ func levenshtein(a, b string) int {
 	return dp[la][lb]
 }
 
+// min3 returns the smallest of three integers.
 func min3(a, b, c int) int {
 	if a < b {
 		if a < c {
@@ -141,11 +154,12 @@ func min3(a, b, c int) int {
 	return c
 }
 
-// suggestKey returns the closest valid key within edit distance 2,
-// or empty string if no close match is found.
+// suggestKey searches validKeys for the entry closest to key by edit distance.
+// It returns the best match if the distance is less than 3 (i.e. at most 2
+// edits), or an empty string when no close match exists.
 func suggestKey(key string, validKeys []string) string {
 	best := ""
-	bestDist := 3 // threshold: only suggest if distance < 3
+	bestDist := 3 // only suggest when distance < 3
 	for _, valid := range validKeys {
 		if d := levenshtein(key, valid); d < bestDist {
 			bestDist = d
@@ -155,26 +169,34 @@ func suggestKey(key string, validKeys []string) string {
 	return best
 }
 
-// Index builder 
+// ── Index builder ─────────────────────────────────────────────────────────────
 
-// buildIndex scans the raw file content line by line, records the source
-// position of every YAML key, and detects misspelled keys.
+// buildIndex performs a single linear pass over the raw file content.
+// It records the source position of every YAML key encountered in the
+// frontmatter, indexes markdown section headings (# Role, # Instructions,
+// etc.), and appends a TypoHint for any key that is not in the valid-key
+// registry for its context but is within edit distance 2 of a known key.
 func buildIndex(content string) (FieldIndex, []TypoHint) {
 	idx := make(FieldIndex)
 	var typos []TypoHint
 	lines := strings.Split(content, "\n")
 
+	// frame tracks the full dotted path and indent level of each open scope.
 	type frame struct {
 		indent int
-		key    string // full dotted path of this frame
+		key    string // full dotted path, e.g. "model.authentication"
 	}
 	stack := []frame{}
+	// listCounters tracks how many list items have been seen under each parent
+	// path so that items can be indexed as parent[0], parent[1], etc.
 	listCounters := map[string]int{}
 
 	inFrontmatter := false
 	frontmatterClosed := false
 	dashCount := 0
 
+	// checkTypo looks up the valid keys for parentPath and, if key is not
+	// among them but resembles one, appends a TypoHint.
 	checkTypo := func(key, parentPath string, line, col int) {
 		validKeys, ctx := contextForPath(parentPath)
 		if validKeys == nil {
@@ -182,7 +204,7 @@ func buildIndex(content string) (FieldIndex, []TypoHint) {
 		}
 		for _, v := range validKeys {
 			if key == v {
-				return // valid key — no typo
+				return // key is valid — nothing to report
 			}
 		}
 		if suggestion := suggestKey(key, validKeys); suggestion != "" {
@@ -194,10 +216,10 @@ func buildIndex(content string) (FieldIndex, []TypoHint) {
 	}
 
 	for lineNum, raw := range lines {
-		line := lineNum + 1
+		line := lineNum + 1 // convert to 1-based
 		trimmed := strings.TrimRight(raw, " \t")
 
-		// Frontmatter boundary detection
+		// ── Frontmatter boundary ──────────────────────────────────────────────
 		if strings.TrimSpace(trimmed) == "---" {
 			dashCount++
 			switch dashCount {
@@ -210,7 +232,7 @@ func buildIndex(content string) (FieldIndex, []TypoHint) {
 			continue
 		}
 
-		// Markdown section headings (after frontmatter closes)
+		// ── Markdown section headings (body, after frontmatter) ───────────────
 		if frontmatterClosed {
 			if stripped := strings.TrimSpace(trimmed); strings.HasPrefix(stripped, "# ") {
 				heading := strings.ToLower(strings.TrimPrefix(stripped, "# "))
@@ -232,7 +254,7 @@ func buildIndex(content string) (FieldIndex, []TypoHint) {
 			continue
 		}
 
-		// Skip blank lines and YAML comments
+		// Skip blank lines and YAML comments inside the frontmatter.
 		if trimmed == "" || strings.HasPrefix(strings.TrimSpace(trimmed), "#") {
 			continue
 		}
@@ -240,22 +262,24 @@ func buildIndex(content string) (FieldIndex, []TypoHint) {
 		indent := len(raw) - len(strings.TrimLeft(raw, " \t"))
 		stripped := strings.TrimSpace(trimmed)
 
-		// Pop stack frames at same or deeper indent
+		// Pop any stack frames whose indent is >= the current line's indent so
+		// that parentPath always reflects the enclosing scope.
 		for len(stack) > 0 && stack[len(stack)-1].indent >= indent {
 			stack = stack[:len(stack)-1]
 		}
 
-		// Current parent path is the top of the stack
+		// The parent path is the full dotted key of the innermost open scope.
 		parentPath := ""
 		if len(stack) > 0 {
 			parentPath = stack[len(stack)-1].key
 		}
 
-		// List item: "- key: value" 
+		// ── YAML list item: "- key: value" ───────────────────────────────────
 		if strings.HasPrefix(stripped, "- ") {
 			rest := strings.TrimPrefix(stripped, "- ")
 			col := indent + 1
 
+			// Assign the next sequential index under this parent.
 			n := listCounters[parentPath]
 			listCounters[parentPath] = n + 1
 
@@ -264,6 +288,7 @@ func buildIndex(content string) (FieldIndex, []TypoHint) {
 				itemPath = fmt.Sprintf("[%d]", n)
 			}
 
+			// Record the first key of the list item (e.g. "type" in "- type: webchat").
 			if colonIdx := strings.Index(rest, ":"); colonIdx >= 0 {
 				key := strings.TrimSpace(rest[:colonIdx])
 				fieldPath := itemPath + "." + key
@@ -272,12 +297,13 @@ func buildIndex(content string) (FieldIndex, []TypoHint) {
 				checkTypo(key, reIndex.ReplaceAllString(itemPath, "[n]"), line, col)
 			}
 
+			// Record the item itself and push it so child keys nest under it.
 			idx[itemPath] = Position{Line: line, Col: col}
 			stack = append(stack, frame{indent: indent, key: itemPath})
 			continue
 		}
 
-		// Regular key: "key: value" or "key:" 
+		// ── Regular YAML key: "key: value" or "key:" ─────────────────────────
 		colonIdx := strings.Index(stripped, ":")
 		if colonIdx < 0 {
 			continue
@@ -295,17 +321,23 @@ func buildIndex(content string) (FieldIndex, []TypoHint) {
 		registerAliases(idx, path, line, col)
 		checkTypo(key, reIndex.ReplaceAllString(parentPath, "[n]"), line, col)
 
+		// Push the full path so child keys can build on it.
 		stack = append(stack, frame{indent: indent, key: path})
 	}
 
 	return idx, typos
 }
 
-// registerAliases records shorthand field names used by the validator
-// alongside the full dotted path so position lookups work for both forms.
+// registerAliases records shorthand field names alongside the full dotted
+// path so that validator lookups succeed regardless of which form is used.
+// For example, "model.authentication.api_key" is stored under both its full
+// path and the shorthand "model.authentication.api_key" used by the validator.
 func registerAliases(idx FieldIndex, path string, line, col int) {
 	pos := Position{Line: line, Col: col}
 
+	// Map of full YAML path → validator field name.
+	// Both forms are identical here; the table exists so future divergences
+	// (e.g. nested tool paths) can be handled without changing the validator.
 	aliases := map[string]string{
 		"spec_version":                 "spec_version",
 		"name":                         "name",
