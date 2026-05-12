@@ -1,13 +1,15 @@
 # AgentFactory CLI
 
+> AgentFactory CLI is inspired by [Agent-Flavored Markdown (AFM)](https://wso2.github.io/agent-flavored-markdown/), a specification for defining portable AI agents using Markdown files. This CLI validates those `.md` agent specs — catching errors, typos, and missing fields before you deploy. Special thanks to the authors at WSO2 for introducing and open-sourcing that concept.
+
 A command-line tool for validating AgentFactory `.md` agent spec files.
 Catches structural errors, misspelled keys, missing sections, and insecure
 credential patterns — before you deploy.
 
 ```
-agentfactory validate weather.md
-agentfactory validate -d ./agents
-agentfactory validate weather.md --config team.afvalidate.toml
+agentfactory vali weather.md
+agentfactory vali -d ./agents
+agentfactory vali weather.md --config team.afvalidate.toml
 ```
 
 ---
@@ -52,20 +54,20 @@ mv agentfactory /usr/local/bin/
 ### Validate a single file
 
 ```bash
-agentfactory validate agent.md
+agentfactory vali agent.md
 ```
 
 ### Validate all `.md` files in a directory
 
 ```bash
-agentfactory validate -d ./agents
+agentfactory vali -d ./agents
 ```
 
 ### Use a specific config file
 
 ```bash
-agentfactory validate agent.md --config team.afvalidate.toml
-agentfactory validate -d ./agents -c .afvalidate.toml
+agentfactory vali agent.md --config team.afvalidate.toml
+agentfactory vali -d ./agents -c .afvalidate.toml
 ```
 
 ### Other commands
@@ -449,6 +451,14 @@ af_cli/
 
 No other external dependencies. The Levenshtein implementation, position
 indexer, and all validation logic are written from scratch.
+
+---
+
+## Acknowledgements
+
+Inspired by [Agent-Flavored Markdown (AFM)](https://wso2.github.io/agent-flavored-markdown/) by WSO2 — a specification for defining portable AI agents using Markdown files. Special thanks to the WSO2 authors for introducing and open-sourcing that concept.
+
+The core idea — that an AI agent should be fully described by a human-readable, framework-agnostic Markdown file — comes directly from the AFM specification. Special thanks to the authors at WSO2 for introducing and open-sourcing that concept.
 
 ---
 
