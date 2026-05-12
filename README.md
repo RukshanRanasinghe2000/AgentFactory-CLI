@@ -20,7 +20,7 @@ agentfactory vali weather.md --config team.afvalidate.toml
 - [Usage](#usage)
 - [Output Screen Shots](#output-screen-shots)
 - [Architecture](#architecture)
-- [Component Interaction](#component-interaction)
+- [Validation Pipeline Sequence](#validation-pipeline-sequence)
 - [Package Reference](#package-reference)
 - [Validation Rules](#validation-rules)
 - [Rule Configuration](#rule-configuration)
@@ -95,12 +95,12 @@ agentfactory help       # show usage
 ![Rule configuration with .afvalidate.toml](af_cli/demo/s5.png)
 
 
-| Section | Meaning | Exit code |
-|---|---|---|
-| `✗ Errors` | Spec is broken — must fix | `1` |
-| `⚠ Warnings` | Should fix, but won't block | `0` |
-| `ℹ Notices` | Info-level findings (configurable) | `0` |
-| `✓ Passed` | Rules that fired with a clean result | `0` |
+| Section      | Meaning                              | Exit code |
+| --------------| --------------------------------------| -----------|
+| `✗ Errors`   | Spec is broken — must fix            | `1`       |
+| `⚠ Warnings` | Should fix, but won't block          | `0`       |
+| `ℹ Notices`  | Info-level findings (configurable)   | `0`       |
+| `✓ Passed`   | Rules that fired with a clean result | `0`       |
 
 Every finding shows `[rule-id]`, the field name, `:line:col` position, and the message.
 
@@ -109,35 +109,46 @@ Every finding shows `[rule-id]`, the field name, `:line:col` position, and the m
 ## Architecture
 
 ```mermaid
-graph TD
-    CLI[main.go\nEntry point] --> CMD[cmd/validate.go\nValidate / ValidateDir]
-    CMD --> CFG[config/config.go\nLoad .afvalidate.toml]
-    CMD --> PARSER[parser/parser.go\nParseFile]
-    PARSER --> LEXER[lexer/lexer.go\nScan]
-    PARSER --> YAML[gopkg.in/yaml.v3\nUnmarshal frontmatter]
-    CMD --> VAL[validator/validator.go\nValidate]
-    VAL --> CFG
-    VAL --> PARSER
-
-    subgraph Input
-        MD[agent.md\nSpec file]
-        TOML[.afvalidate.toml\nRule config]
+flowchart LR
+    subgraph IN["Input"]
+        MD["agent.md"]
+        TOML[".afvalidate.toml"]
     end
 
-    subgraph Output
-        REPORT[Report\nResults with line/col]
-        STDOUT[Terminal output\ncoloured groups]
+    subgraph CLI["CLI Layer"]
+        MAIN["main.go\narg parsing + routing"]
+        CMD["cmd/validate.go\nValidate / ValidateDir"]
+    end
+
+    subgraph CORE["Core Pipeline"]
+        direction TB
+        CFG["config/config.go\nload rule overrides"]
+        PARSER["parser/parser.go\nYAML unmarshal\nmarkdown sections"]
+        LEXER["lexer/lexer.go\nposition index\ntypo detection"]
+        VAL["validator/validator.go\n47 check functions\nemit with line/col"]
+    end
+
+    subgraph OUT["Output"]
+        REPORT["Report\nResults + positions"]
+        STDOUT["Terminal\n Errors  Warnings\n Notices  Passed"]
     end
 
     MD --> PARSER
     TOML --> CFG
+    MAIN --> CMD
+    CMD --> CFG
+    CMD --> PARSER
+    PARSER --> LEXER
+    CMD --> VAL
+    VAL --> CFG
+    VAL --> PARSER
     VAL --> REPORT
     REPORT --> STDOUT
 ```
 
 ---
 
-## Component Interaction
+## Validation Pipeline Sequence
 
 ```mermaid
 sequenceDiagram
@@ -215,7 +226,7 @@ Key types: `Spec`, `ModelSpec`, `AuthSpec`, `Interface`, `Skill`, `ToolMCP`
 
 ### `lexer`
 
-Single-pass line scanner. Builds a `FieldIndex` (field path → `Position`)
+A linear single-pass scanner. Builds a `FieldIndex` (field path → `Position`)
 and detects misspelled YAML keys and section headings using Levenshtein
 distance matching.
 
