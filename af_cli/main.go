@@ -14,7 +14,7 @@ func main() {
 	}
 
 	switch os.Args[1] {
-	case "validate":
+	case "vali":
 		file, dir, configPath := parseValidateArgs(os.Args[2:])
 
 		if dir != "" {
@@ -71,10 +71,10 @@ func printUsage() {
 	fmt.Println(`AgentFactory CLI — validate .md agent specs
 
 Usage:
-  agentfactory validate <agent.md>                      Validate a single spec file
-  agentfactory validate -d <directory>                  Validate all .md files in a directory
-  agentfactory validate <agent.md> --config <path>      Use a specific config file
-  agentfactory validate -d <directory> --config <path>  Directory validate with config
+  agentfactory vali <agent.md>                      Validate a single spec file
+  agentfactory vali -d <directory>                  Validate all .md files in a directory
+  agentfactory vali <agent.md> --config <path>      Use a specific config file
+  agentfactory vali -d <directory> --config <path>  Directory validate with config
   agentfactory version                                  Show CLI version
   agentfactory help                                     Show this help
 
@@ -85,7 +85,7 @@ Config file (.afvalidate.toml) search order:
   4. Home directory (~/.afvalidate.toml)
 
 Examples:
-  agentfactory validate weather.md
-  agentfactory validate -d ./agents
-  agentfactory validate -d ./agents --config team.afvalidate.toml`)
+  agentfactory vali weather.md
+  agentfactory vali -d ./agents
+  agentfactory vali -d ./agents --config team.afvalidate.toml`)
 }
