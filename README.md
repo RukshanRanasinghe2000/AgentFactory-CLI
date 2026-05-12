@@ -6,6 +6,8 @@ A command-line tool for validating AgentFactory `.md` agent spec files.
 Catches structural errors, misspelled keys, missing sections, and insecure
 credential patterns — before you deploy.
 
+⚠️ **This is an experimental project** — AgentFactory-CLI is in active development. Rules and specifications may change as the platform continues to improve.
+
 ```
 agentfactory vali weather.md
 agentfactory vali -d ./agents
