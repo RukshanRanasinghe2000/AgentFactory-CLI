@@ -408,37 +408,61 @@ Contexts with typo checking: `root`, `model`, `model.authentication`,
 ## Project Structure
 
 ```
-af_cli/
-├── main.go                  Entry point — arg parsing, command routing
-├── go.mod                   Module: github.com/agentfactory/cli
+AgentFactory-CLI/
+├── LICENSE
+├── README.md
 │
-├── cmd/
-│   └── validate.go          Validate() and ValidateDir() — output formatting
-│
-├── config/
-│   └── config.go            Load .afvalidate.toml, Resolve() rule levels
-│
-├── lexer/
-│   └── lexer.go             Scan() — position index, typo detection,
-│                            Levenshtein distance, valid-key registry
-│
-├── parser/
-│   └── parser.go            ParseFile() — YAML unmarshal + markdown sections
-│                            Re-exports lexer types (FieldIndex, Position, TypoHint)
-│
-├── validator/
-│   └── validator.go         Validate() — 8 check functions, emit(), lookupPos()
-│
-└── testdata/
-    ├── weather.md            Example: weather forecast agent
-    ├── assistant.md          Example: conversational assistant
-    ├── typo-test.md          Fixture: deliberate typos for testing
-    ├── heading-typo.md       Fixture: misspelled section headings
-    └── rules/               47 fixtures — one per rule ID
-        ├── name.required.md
-        ├── role.required.md
-        ├── model.auth.api-key.hardcoded.md
-        └── ...
+└── af_cli/                          Go module root
+    ├── main.go                      Entry point — arg parsing, command routing
+    ├── go.mod                       Module: github.com/agentfactory/cli
+    ├── .afvalidate.toml             Default rule configuration (all rules documented)
+    │
+    ├── cmd/
+    │   └── validate.go              Validate() and ValidateDir() — output formatting
+    │
+    ├── config/
+    │   └── config.go                Load .afvalidate.toml, Resolve() rule levels
+    │
+    ├── lexer/
+    │   └── lexer.go                 Scan() — position index, typo detection,
+    │                                Levenshtein distance, valid-key registry
+    │
+    ├── parser/
+    │   └── parser.go                ParseFile() — YAML unmarshal + markdown sections
+    │                                Re-exports lexer types (FieldIndex, Position, TypoHint)
+    │
+    ├── validator/
+    │   └── validator.go             Validate() — 8 check functions, emit(), lookupPos()
+    │
+    ├── bin/
+    │   └── agentfactory.exe         Local development build (Windows)
+    │
+    ├── dist/                        Release binaries
+    │   ├── agentfactory-darwin-arm64
+    │   ├── agentfactory-linux-amd64
+    │   └── agentfactory.exe
+    │
+    ├── demo/                        Screenshots for README
+    │   ├── s1.png  s2.png  s3.png
+    │   ├── s4.png  s5.png
+    │
+    └── testdata/                    Test fixtures
+        ├── weather.md               Example: weather forecast agent
+        ├── assistant.md             Example: conversational assistant
+        ├── agentgit.md              Example: GitHub PR drift checker
+        ├── math.md                  Example: math tutor agent
+        ├── typo-test.md             Fixture: deliberate YAML key typos
+        ├── heading-typo.md          Fixture: misspelled section headings
+        ├── strict.afvalidate.toml   Fixture: strict rule config for testing
+        │
+        ├── rules/                   47 fixtures — one per rule ID
+        │   ├── name.required.md
+        │   ├── role.required.md
+        │   ├── model.auth.api-key.hardcoded.md
+        │   └── ... (44 more)
+        │
+        └── bulk/                    Multi-file directory validation fixtures(Test)
+            └── ... (6 files)
 ```
 
 ---
@@ -457,10 +481,10 @@ indexer, and all validation logic are written from scratch.
 
 ## Exit Codes
 
-| Code | Meaning |
-|---|---|
-| `0` | Spec is valid (no errors) |
-| `1` | Spec has one or more errors |
+| Code | Meaning                     |
+| ------| -----------------------------|
+| `0`  | Spec is valid (no errors)   |
+| `1`  | Spec has one or more errors |
 
 ---
 ## TODO 
