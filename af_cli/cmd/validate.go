@@ -172,24 +172,14 @@ func printGroup(report *validator.Report, sev validator.Severity, color, label s
 		if len(notices) > 0 {
 			fmt.Printf("%s%sℹ Notices%s (%d)\n", colorBold, colorCyan, colorReset, len(notices))
 			for _, r := range notices {
-				loc := ""
-				if r.Line > 0 {
-					loc = fmt.Sprintf("%s:%d:%d%s", colorDim, r.Line, r.Col, colorReset)
-				}
-				fmt.Printf("  %s[%s]%s %-30s %-10s %s\n",
-					colorDim, r.RuleID, colorReset, r.Field, loc, r.Message)
+				printResult(r)
 			}
 			fmt.Println()
 		}
 		if len(passes) > 0 {
 			fmt.Printf("%s%s%s%s (%d)\n", colorBold, color, label, colorReset, len(passes))
 			for _, r := range passes {
-				loc := ""
-				if r.Line > 0 {
-					loc = fmt.Sprintf("%s:%d:%d%s", colorDim, r.Line, r.Col, colorReset)
-				}
-				fmt.Printf("  %s[%s]%s %-30s %-10s %s\n",
-					colorDim, r.RuleID, colorReset, r.Field, loc, r.Message)
+				printResult(r)
 			}
 			fmt.Println()
 		}
@@ -198,14 +188,18 @@ func printGroup(report *validator.Report, sev validator.Severity, color, label s
 
 	fmt.Printf("%s%s%s%s (%d)\n", colorBold, color, label, colorReset, len(items))
 	for _, r := range items {
-		loc := ""
-		if r.Line > 0 {
-			loc = fmt.Sprintf("%s:%d:%d%s", colorDim, r.Line, r.Col, colorReset)
-		}
-		fmt.Printf("  %s[%s]%s %-30s %-10s %s\n",
-			colorDim, r.RuleID, colorReset, r.Field, loc, r.Message)
+		printResult(r)
 	}
 	fmt.Println()
+}
+
+func printResult(r validator.Result) {
+	loc := ""
+	if r.Line > 0 {
+		loc = fmt.Sprintf(" %s:%d:%d%s", colorDim, r.Line, r.Col, colorReset)
+	}
+	fmt.Printf("  %s[%s]%s %s%s  %s\n",
+		colorDim, r.RuleID, colorReset, r.Field, loc, r.Message)
 }
 
 func printSummary(report *validator.Report) {
