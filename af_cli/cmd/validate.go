@@ -23,6 +23,13 @@ const (
 	colorDim    = "\033[2m"
 )
 
+// Banner
+const banner = `
+┌─ AgentFactory ───────────────────┐
+│        Spec Validation           │
+└──────────────────────────────────┘
+`
+
 // Validate reads, parses, and validates a .md agent spec file.
 // Accepts an optional explicit config path (empty string = auto-discover).
 // Exits with code 1 if any errors are found.
@@ -50,7 +57,7 @@ func Validate(file, configPath string) {
 	report := validator.Validate(file, spec, cfg)
 
 	// Print header
-	fmt.Printf("\n%s%sAgentFactory Spec Validator%s\n", colorBold, colorCyan, colorReset)
+	fmt.Printf("%s%s%s\n", colorCyan, banner, colorReset)
 	fmt.Printf("%s%s%s\n", colorDim, file, colorReset)
 	if cfgPath != "" {
 		fmt.Printf("%sconfig: %s%s\n", colorDim, cfgPath, colorReset)
