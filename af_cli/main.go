@@ -28,7 +28,7 @@ func main() {
 		}
 
 	case "version", "--version", "-v":
-		fmt.Println("agentfactory-cli v0.1.0")
+		fmt.Println("agentfactory-cli v1.0.0")
 
 	case "help", "--help", "-h":
 		printUsage()
