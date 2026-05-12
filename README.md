@@ -1,10 +1,10 @@
 # AgentFactory CLI
 
-> AgentFactory CLI is inspired by [Agent-Flavored Markdown (AFM)](https://wso2.github.io/agent-flavored-markdown/), a specification for defining portable AI agents using Markdown files. This CLI validates those `.md` agent specs — catching errors, typos, and missing fields before you deploy. Special thanks to the authors at WSO2 for introducing and open-sourcing that concept.
+> AgentFactory CLI is inspired by [Agent-Flavored Markdown (AFM)](https://wso2.github.io/agent-flavored-markdown/), a specification for defining portable AI agents using Markdown files. It validates `.md` agent specifications and catches structural errors, typos, missing fields, and unsafe configurations before deployment. Special thanks to the authors at WSO2 for introducing and open-sourcing the AFM concept.
 
 A command-line tool for validating AgentFactory `.md` agent spec files.
-Catches structural errors, misspelled keys, missing sections, and insecure
-credential patterns — before you deploy.
+
+It ensures agent definitions are production-ready by detecting structural issues, misspelled keys, missing sections, and insecure credential patterns before deployment.
 
 ⚠️ **This is an experimental project** — AgentFactory-CLI is in active development. Rules and specifications may change as the platform continues to improve.
 
@@ -455,14 +455,6 @@ indexer, and all validation logic are written from scratch.
 
 ---
 
-## Acknowledgements
-
-Inspired by [Agent-Flavored Markdown (AFM)](https://wso2.github.io/agent-flavored-markdown/) by WSO2 — a specification for defining portable AI agents using Markdown files. Special thanks to the WSO2 authors for introducing and open-sourcing that concept.
-
-The core idea — that an AI agent should be fully described by a human-readable, framework-agnostic Markdown file — comes directly from the AFM specification. Special thanks to the authors at WSO2 for introducing and open-sourcing that concept.
-
----
-
 ## Exit Codes
 
 | Code | Meaning |
@@ -471,7 +463,11 @@ The core idea — that an AI agent should be fully described by a human-readable
 | `1` | Spec has one or more errors |
 
 ---
+## TODO 
 
+- [ ] Feature to add custom rules based on user preferences
+
+---
 ## License
 
 [MIT](LICENSE)
