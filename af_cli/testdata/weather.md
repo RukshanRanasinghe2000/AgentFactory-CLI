@@ -1,5 +1,5 @@
 ---
-spec_version: "0.3.0"
+spec_version: 
 name: "Weather Forecast Agent"
 description: "Fetches real-time weather forecasts for any city using OpenWeatherMap."
 version: "0.1.0"
@@ -14,7 +14,7 @@ model:
     type: "api-key"
     api_key: "${env:GROQ_API_KEY}"
 interfaces:
-  - type: "consolechat"
+  - ype: "consolechat"
 tools:
   mcp:
     - name: "weather_api"
@@ -38,7 +38,7 @@ and present it in a clear, friendly format.
 
 ---
 
-# Instructions
+# Instruction
 
 ## 1. Extract the City
 

@@ -18,7 +18,7 @@ agentfactory vali weather.md --config team.afvalidate.toml
 
 - [Installation](#installation)
 - [Usage](#usage)
-- [Output](#output)
+- [Output Screen Shots](#output-screen-shots)
 - [Architecture](#architecture)
 - [Component Interaction](#component-interaction)
 - [Package Reference](#package-reference)
@@ -79,33 +79,21 @@ agentfactory help       # show usage
 
 ---
 
-## Output
+## Output Screen Shots
+### Single file validation
 
-Results are grouped into four sections:
+![Validation output showing errors and warnings](af_cli/demo/s1.png)
 
-```
-AgentFactory Spec Validator
-weather.md
-config: .afvalidate.toml
+![Validation output showing passed rules with line numbers](af_cli/demo/s2.png)
 
-✗ Errors (1)
-  [key.typo] line 9, col 3        :9:3   unknown key "provder" — did you mean "provider"?
+![Directory validation mode with multiple files](af_cli/demo/s3.png)
+### Validate file bulk
 
-⚠ Warnings (2)
-  [enforcement.set] # Enforcement         not set — consider adding hard rules
-  [model.auth.set]  model.authentication  not set — will rely on server-side env vars
+![Typo detection output with suggestions](af_cli/demo/s4.png)
+### Help section
 
-ℹ Notices (1)
-  [instructions.required] # Instructions  section is missing — add step-by-step instructions
+![Rule configuration with .afvalidate.toml](af_cli/demo/s5.png)
 
-✓ Passed (12)
-  [spec-version.set.ok] spec_version  :2:1  ✓ 0.3.0
-  [name.required.ok]    name          :3:1  ✓ "Weather Forecast Agent"
-  ...
-
-────────────────────────────────────────────────────────────
-✓ Spec is valid  —  2 warning(s)  1 notice  12 passed
-```
 
 | Section | Meaning | Exit code |
 |---|---|---|
@@ -468,3 +456,9 @@ The core idea — that an AI agent should be fully described by a human-readable
 |---|---|
 | `0` | Spec is valid (no errors) |
 | `1` | Spec has one or more errors |
+
+---
+
+## License
+
+[MIT](LICENSE)
