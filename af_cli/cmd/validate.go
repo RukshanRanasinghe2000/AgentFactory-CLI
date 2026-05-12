@@ -87,8 +87,8 @@ func ValidateDir(dir, configPath string) {
 		fatalf("no .md files found in directory: %s", dir)
 	}
 
-	fmt.Printf("\n%s%sAgentFactory Spec Validator%s  %s(directory)%s\n",
-		colorBold, colorCyan, colorReset, colorDim, colorReset)
+		fmt.Printf("%s%s%s\n", colorCyan, banner, colorReset)
+
 	fmt.Printf("%s%s%s\n\n", colorDim, dir, colorReset)
 
 	totalFiles := 0
@@ -123,19 +123,36 @@ func ValidateDir(dir, configPath string) {
 		totalErrors += report.Errors
 		totalWarnings += report.Warnings
 
-		// One-line result per file
 		base := filepath.Base(file)
+
+		// File header line
 		if report.Errors > 0 {
-			fmt.Printf("  %s✗%s %-40s %s%d error(s)%s",
-				colorRed, colorReset, base, colorRed, report.Errors, colorReset)
+			fmt.Printf("\n  %s✗%s %s%s%s\n", colorRed, colorReset, colorBold, base, colorReset)
 		} else {
-			fmt.Printf("  %s✓%s %-40s %s%d passed%s",
-				colorGreen, colorReset, base, colorGreen, report.Infos, colorReset)
+			fmt.Printf("\n  %s✓%s %s%s%s\n", colorGreen, colorReset, colorBold, base, colorReset)
 		}
-		if report.Warnings > 0 {
-			fmt.Printf("  %s%d warning(s)%s", colorYellow, report.Warnings, colorReset)
+
+		// Print each non-pass finding with position
+		for _, r := range report.Results {
+			if strings.HasPrefix(r.Message, "✓") {
+				continue // skip pass confirmations in dir mode
+			}
+			var color string
+			switch r.Severity {
+			case validator.SeverityError:
+				color = colorRed
+			case validator.SeverityWarning:
+				color = colorYellow
+			default:
+				color = colorCyan
+			}
+			loc := ""
+			if r.Line > 0 {
+				loc = fmt.Sprintf(" %s:%d:%d%s", colorDim, r.Line, r.Col, colorReset)
+			}
+			fmt.Printf("    %s[%s]%s %s%s  %s\n",
+				colorDim, r.RuleID, colorReset, r.Field, loc, color+r.Message+colorReset)
 		}
-		fmt.Println()
 	}
 
 	// Overall summary
