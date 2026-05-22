@@ -4,7 +4,7 @@ from typing import List, Optional
 class Authentication(BaseModel):
     type: str
     api_key: str
-     
+
 class ModelConfig(BaseModel):
     provider: str
     name: str
@@ -33,6 +33,10 @@ class Tool(BaseModel):
     name: str
     description: Optional[str] = None
 
+class Tools(BaseModel):
+    mcp: List[MCPTool] = []
+    builtin: List[Tool] = []
+
 class AgentSpec(BaseModel):
     spec_version: Optional[str] = None
     name: str
@@ -40,11 +44,19 @@ class AgentSpec(BaseModel):
     version: str
     license: str
 
+    role: Optional[str] = None
+    instructions: Optional[str] = None
+    output_format: Optional[str] = None
+    enforcement: Optional[str] = None
+    memory_type: Optional[str] = None
+    json_output_template: Optional[str] = None
+
     max_iterations: int = 5
-    execution_mode: str = "agentic"
+    execution_mode: str = "sequential"
 
-    model: ModelConfig
-
+    model: Optional[ModelConfig] = None
     interfaces: List[Interface] = []
+    tools: Optional[Tools] = None
 
-    tools: Tools
+    suggested_tools: List[str] = []
+    suggested_interfaces: List[str] = []

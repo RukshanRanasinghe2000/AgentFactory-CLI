@@ -33,5 +33,9 @@ def generate_node(state: AgentState):
         state["validation_errors"] = [
             "Failed to parse generated AgentSpec JSON"
         ]
-
         return state
+
+    state["agent_spec"] = spec
+    state["validation_errors"] = []
+
+    return state
