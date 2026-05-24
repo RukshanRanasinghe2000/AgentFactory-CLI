@@ -42,7 +42,7 @@ class AgentSpec(BaseModel):
     name: str
     description: str
     version: str
-    license: str
+    license: Optional[str] = None
 
     role: Optional[str] = None
     instructions: Optional[str] = None
