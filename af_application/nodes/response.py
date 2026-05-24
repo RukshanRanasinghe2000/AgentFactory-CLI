@@ -11,8 +11,8 @@ def response_node(state: RuntimeState) -> RuntimeState:
     produce a grounded natural-language answer.
     Otherwise the existing assistant_response is used as-is.
     """
-    tool_results = state.get("tool_results", [])
-    messages     = list(state.get("messages", []))
+    tool_results = state.get("tool_results") or []
+    messages     = list(state.get("messages") or [])
     agent_spec   = state.get("agent_spec", {})
 
     if not tool_results:
@@ -36,8 +36,26 @@ def response_node(state: RuntimeState) -> RuntimeState:
             "content":      content,
         })
 
-    # Ask the LLM to synthesise a final answer from the tool results
-    system_prompt = agent_spec.get("role") or agent_spec.get("instructions") or None
+    # Build system prompt consistently with chat_node
+    parts = []
+    if agent_spec.get("role"):
+        parts.append(agent_spec["role"])
+    if agent_spec.get("instructions"):
+        parts.append("## Instructions\n" + agent_spec["instructions"])
+    if agent_spec.get("enforcement"):
+        parts.append("## Enforcement\n" + agent_spec["enforcement"])
+    if agent_spec.get("json_output_template"):
+        parts.append(
+            "## Output Format\n"
+            "You MUST respond using exactly this JSON structure:\n"
+            "```json\n" + agent_spec["json_output_template"] + "\n```"
+        )
+    else:
+        parts.append(
+            "## Output Format\n"
+            "Respond in a clear, friendly, conversational tone."
+        )
+    system_prompt = "\n\n".join(parts) if parts else None
 
     final = generate_with_tools(
         messages=messages,

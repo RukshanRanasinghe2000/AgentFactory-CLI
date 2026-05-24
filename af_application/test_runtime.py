@@ -3,7 +3,7 @@ Runtime smoke test — loads a real AFM spec and runs a single chat turn.
 
 Run from af_application/:
     python test_runtime.py
-    python test_runtime.py test_data/weather.md "What is the weather in London?"
+    python test_runtime.py test_data/weather.md "What is the weather in Colombo?"
 """
 
 import sys

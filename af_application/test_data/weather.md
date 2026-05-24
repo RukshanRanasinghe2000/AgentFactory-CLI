@@ -48,12 +48,32 @@ Read the user's message and identify the city they want weather for.
 
 Use the weather_api tool with the city name extracted from the user's message.
 
-## 3. Present the Forecast
+---
 
-Summarize the forecast clearly:
-- Current temperature and conditions
-- Next 24 hours outlook
-- Any notable weather events
+# Output Schema
+
+```json
+{
+  "location": "Sri Lanka",
+  "currentWeather": {
+    "temperature": 28,
+    "humidity": 60,
+    "windSpeed": 15
+  },
+  "forecast": [
+    {
+      "date": "2024-09-16",
+      "temperature": 29,
+      "precipitation": 0.5
+    },
+    {
+      "date": "2024-09-17",
+      "temperature": 30,
+      "precipitation": 0.2
+    }
+  ]
+}
+```
 
 ---
 

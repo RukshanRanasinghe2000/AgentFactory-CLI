@@ -15,10 +15,10 @@ AgentFactory uses two system prompts in sequence to transform a user's rough ide
 
 Both prompts are stored here as the single source of truth. When updating a prompt, update **both** this file and `frontend/public/prompts/system_agent.md` (the copy used at runtime).
 
-| Prompt | Route File | Purpose |
-|---|---|---|
+| Prompt  | Route File                          | Purpose                                         |
+| ---------| -------------------------------------| -------------------------------------------------|
 | Clarify | `frontend/app/api/clarify/route.ts` | Ask 3 targeted questions before spec generation |
-| Refine | `frontend/app/api/refine/route.ts` | Generate full AgentSpec JSON from enriched idea |
+| Refine  | `frontend/app/api/refine/route.ts`  | Generate full AgentSpec JSON from enriched idea |
 
 ---
 

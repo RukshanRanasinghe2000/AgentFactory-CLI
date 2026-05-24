@@ -28,15 +28,9 @@ builder.add_edge("chat", "router")
 
 # Conditional routing
 def route_tools(state: RuntimeState):
-    """
-    Decide whether tools should execute.
-    """
-
-    tool_calls = state.get("tool_calls", [])
-
+    tool_calls = state.get("tool_calls") or []
     if tool_calls:
         return "tools"
-
     return "response"
 
 

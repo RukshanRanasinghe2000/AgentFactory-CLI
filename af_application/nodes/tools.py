@@ -5,7 +5,7 @@ from adapters.runtime_adapter import execute_tool_call
 
 
 def find_tool(agent_spec, tool_name):
-    mcp_tools = agent_spec.get("tools", {}).get("mcp", [])
+    mcp_tools = (agent_spec.get("tools") or {}).get("mcp") or []
     for tool in mcp_tools:
         if tool.get("name") == tool_name:
             return tool
@@ -51,7 +51,7 @@ def tools_node(state: RuntimeState):
     """
 
     agent_spec = state.get("agent_spec", {})
-    tool_calls = state.get("tool_calls", [])
+    tool_calls = state.get("tool_calls") or []
 
     tool_results = []
 
