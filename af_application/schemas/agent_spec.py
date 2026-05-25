@@ -1,41 +1,67 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Dict, List, Optional
+
 
 class Authentication(BaseModel):
     type: str
-    api_key: str
+    api_key: Optional[str] = None       # api-key auth
+    username: Optional[str] = None      # basic auth
+    password: Optional[str] = None      # basic auth
 
-class ModelConfig(BaseModel):
-    provider: str
-    name: str
-    temperature: float = 0.7
-    authentication: Authentication
+    model_config = {"extra": "allow"}
 
-class Interface(BaseModel):
-    type: str
+
+class Transport(BaseModel):
+    type: str                            # "http" | "stdio"
+    url: Optional[str] = None           # http transport
+    command: Optional[str] = None       # stdio transport
+    args: List[str] = []
+    env: Optional[Dict[str, str]] = None
+
+    model_config = {"extra": "allow"}
+
 
 class QueryParam(BaseModel):
     key: str
-    description: str
+    description: str = ""
     required: bool = False
 
-class Transport(BaseModel):
-    type: str
-    url: str
 
 class MCPTool(BaseModel):
     name: str
     transport: Transport
-    authentication: Authentication
+    authentication: Optional[Authentication] = None   # not required for stdio
     query_params: List[QueryParam] = []
+
+    model_config = {"extra": "allow"}
+
 
 class Tool(BaseModel):
     name: str
     description: Optional[str] = None
 
+
 class Tools(BaseModel):
     mcp: List[MCPTool] = []
     builtin: List[Tool] = []
+
+    model_config = {"extra": "allow"}
+
+
+class Interface(BaseModel):
+    type: str
+
+    model_config = {"extra": "allow"}
+
+
+class ModelConfig(BaseModel):
+    provider: str
+    name: str
+    temperature: float = 0.7
+    authentication: Optional[Authentication] = None
+
+    model_config = {"extra": "allow"}
+
 
 class AgentSpec(BaseModel):
     spec_version: Optional[str] = None
@@ -43,6 +69,7 @@ class AgentSpec(BaseModel):
     description: str
     version: str
     license: Optional[str] = None
+    author: Optional[str] = None
 
     role: Optional[str] = None
     instructions: Optional[str] = None
@@ -60,3 +87,5 @@ class AgentSpec(BaseModel):
 
     suggested_tools: List[str] = []
     suggested_interfaces: List[str] = []
+
+    model_config = {"extra": "ignore"}
