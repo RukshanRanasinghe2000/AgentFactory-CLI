@@ -41,6 +41,7 @@ def run():
 
         state = {
             "agent_spec":          spec,
+            "spec_path":           spec_path,
             "user_input":          user_input,
             "messages":            messages,
             "assistant_response":  None,

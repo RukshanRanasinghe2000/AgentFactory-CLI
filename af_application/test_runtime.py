@@ -31,11 +31,12 @@ def run(spec_path: str, user_input: str) -> None:
         sys.exit(1)
 
     print(f"  Agent  : {agent_spec.get('name')}")
-    print(f"  Tools  : {[t['name'] for t in agent_spec.get('tools', {}).get('mcp', [])]}\n")
+    print(f"  Tools  : {[t['name'] for t in (agent_spec.get('tools') or {}).get('mcp') or []]}\n")
 
     # Build initial runtime state
     initial_state = {
         "agent_spec":          agent_spec,
+        "spec_path":           spec_path,
         "user_input":          user_input,
         "messages":            [],
         "assistant_response":  None,

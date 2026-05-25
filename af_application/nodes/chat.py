@@ -2,6 +2,7 @@ import os
 from schemas.runtime_state import RuntimeState
 from providers.openai import generate_with_tools
 from adapters.runtime_adapter import list_stdio_tools
+from adapters.skills_adapter import build_skills_context
 
 
 def _clean_schema(schema: dict) -> dict:
@@ -99,7 +100,7 @@ def _resolve_env_str(value: str) -> str:
     return re.sub(r"\$\{env:([^}]+)\}", replacer, value or "")
 
 
-def _build_system_prompt(agent_spec: dict) -> str | None:
+def _build_system_prompt(agent_spec: dict, spec_path: str = "") -> str | None:
     parts = []
     if agent_spec.get("role"):
         parts.append(agent_spec["role"])
@@ -126,6 +127,11 @@ def _build_system_prompt(agent_spec: dict) -> str | None:
             f"Always start exploration from one of these paths."
         )
 
+    # Inject skills context if any are defined
+    skills_context = build_skills_context(agent_spec, spec_path)
+    if skills_context:
+        parts.append(skills_context)
+
     return "\n\n".join(parts) if parts else None
 
 
@@ -137,7 +143,7 @@ def chat_node(state: RuntimeState) -> RuntimeState:
     messages.append({"role": "user", "content": user_input})
 
     tool_schemas = _build_tool_schemas(agent_spec)
-    system_prompt = _build_system_prompt(agent_spec)
+    system_prompt = _build_system_prompt(agent_spec, state.get("spec_path", ""))
 
     # Strip internal routing metadata and filter out tools with empty names
     openai_tools = [

@@ -9,6 +9,9 @@ class RuntimeState(TypedDict):
     # Parsed AFM spec
     agent_spec: Dict[str, Any]
 
+    # Path to the spec file (used for resolving relative skill paths)
+    spec_path: Optional[str]
+
     # User message
     user_input: str
 
