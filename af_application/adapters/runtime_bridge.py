@@ -30,6 +30,7 @@ def run():
             print(json.dumps({
                 "success":        True,
                 "agent_name":     spec.get("name", "Agent"),
+                "spec_version":   spec.get("spec_version") or "",
                 "model_provider": model.get("provider", "unknown"),
                 "model_name":     model.get("name", "unknown"),
             }))

@@ -24,6 +24,7 @@ type runtimeOutput struct {
 	Success           bool                `json:"success"`
 	Error             string              `json:"error"`
 	AgentName         string              `json:"agent_name"`
+	SpecVersion       string              `json:"spec_version"`
 	ModelProvider     string              `json:"model_provider"`
 	ModelName         string              `json:"model_name"`
 	AssistantResponse string              `json:"assistant_response"`
@@ -64,12 +65,18 @@ func runAgent(pythonPath, appDir string, args []string) {
 
 	// ── Print agent header ────────────────────────────────────────────────────
 	fmt.Println()
-	fmt.Printf(" %s┌──────────────────────────────────────────┐%s\n", colorCyan, colorReset)
-	fmt.Printf(" %s│%s  %-42s%s│%s\n", colorCyan, colorBold, loadResult.AgentName, colorReset+colorCyan, colorReset)
-	fmt.Printf(" %s│%s  %-42s%s│%s\n", colorCyan, colorDim,
-		fmt.Sprintf("%s  /  %s", loadResult.ModelProvider, loadResult.ModelName),
-		colorReset+colorCyan, colorReset)
-	fmt.Printf(" %s└──────────────────────────────────────────┘%s\n\n", colorCyan, colorReset)
+	fmt.Printf(" %s┌─ AgentFactory ───────────────────┐%s\n", colorCyan, colorReset)
+	fmt.Printf(" %s│%s %-34s%s│%s\n", colorCyan, colorBold, "Runtime", colorReset+colorCyan, colorReset)
+	fmt.Printf(" %s└──────────────────────────────────┘%s\n", colorCyan, colorReset)
+	fmt.Println()
+
+	specVer := loadResult.SpecVersion
+	if specVer == "" {
+		specVer = "—"
+	}
+	fmt.Printf("  %sSpec Version%s   %s\n", colorDim, colorReset, specVer)
+	fmt.Printf("  %sAgent%s          %s%s%s\n", colorDim, colorReset, colorBold, loadResult.AgentName, colorReset)
+	fmt.Printf("  %sModel%s          %s%s / %s%s\n\n", colorDim, colorReset, colorCyan, loadResult.ModelProvider, loadResult.ModelName, colorReset)
 
 	fmt.Printf("  %sType your message. Press Ctrl+C to exit.%s\n\n",
 		colorDim, colorReset)
