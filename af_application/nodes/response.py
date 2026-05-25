@@ -3,6 +3,16 @@ from schemas.runtime_state import RuntimeState
 from providers.openai import generate_with_tools
 
 
+MAX_TOOL_RESULT_CHARS = 2000   # truncate large tool responses
+MAX_HISTORY_MESSAGES  = 10     # keep only the last N messages to avoid 413s
+
+
+def _truncate(text: str, limit: int = MAX_TOOL_RESULT_CHARS) -> str:
+    if len(text) <= limit:
+        return text
+    return text[:limit] + f"\n... [truncated, {len(text) - limit} chars omitted]"
+
+
 def response_node(state: RuntimeState) -> RuntimeState:
     """
     Finalise the assistant response.
@@ -25,7 +35,8 @@ def response_node(state: RuntimeState) -> RuntimeState:
         tool_name = result.get("tool", "unknown")
 
         if result.get("success"):
-            content = json.dumps(result.get("result", {}))
+            raw = json.dumps(result.get("result", {}))
+            content = _truncate(raw)
         else:
             content = json.dumps({"error": result.get("error", "Tool failed")})
 
@@ -58,8 +69,8 @@ def response_node(state: RuntimeState) -> RuntimeState:
     system_prompt = "\n\n".join(parts) if parts else None
 
     final = generate_with_tools(
-        messages=messages,
-        tools=None,          # no more tool calls in this turn
+        messages=messages[-MAX_HISTORY_MESSAGES:],
+        tools=None,
         system_prompt=system_prompt,
     )
 
