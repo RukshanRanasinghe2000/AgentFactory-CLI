@@ -153,7 +153,7 @@ def chat_node(state: RuntimeState) -> RuntimeState:
     ]
 
     result = generate_with_tools(
-        messages=messages,
+        messages=messages[-10:],
         tools=openai_tools,
         system_prompt=system_prompt,
     )
