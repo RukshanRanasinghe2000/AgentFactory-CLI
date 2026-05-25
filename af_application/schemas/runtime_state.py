@@ -29,3 +29,6 @@ class RuntimeState(TypedDict):
 
     # Session status
     finished: bool
+
+    # Internal: tool schemas with routing metadata (set by chat_node)
+    _tool_schemas: Optional[List[Dict[str, Any]]]

@@ -50,33 +50,6 @@ Use the weather_api tool with the city name extracted from the user's message.
 
 ---
 
-# Output Schema
-
-```json
-{
-  "location": "Sri Lanka",
-  "currentWeather": {
-    "temperature": 28,
-    "humidity": 60,
-    "windSpeed": 15
-  },
-  "forecast": [
-    {
-      "date": "2024-09-16",
-      "temperature": 29,
-      "precipitation": 0.5
-    },
-    {
-      "date": "2024-09-17",
-      "temperature": 30,
-      "precipitation": 0.2
-    }
-  ]
-}
-```
-
----
-
 # Enforcement
 
 - Always use the weather_api tool for real-time data — never guess or use training data

@@ -1,6 +1,7 @@
+import json
 import os
 from typing import Any
-from openai import OpenAI
+from openai import OpenAI, BadRequestError
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -11,6 +12,16 @@ client = OpenAI(
 )
 
 MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4o-mini")
+
+# Groq struggles with large tool lists — cap at this many
+MAX_TOOLS = 8
+
+# Core filesystem tools to keep when trimming (most useful for code exploration)
+_PRIORITY_TOOLS = {
+    "list_directory", "directory_tree", "read_text_file",
+    "read_multiple_files", "search_files", "sequentialthinking",
+    "get_weather", "weather_api",
+}
 
 
 def generate_text(prompt: str) -> str:
@@ -29,48 +40,38 @@ def generate_with_tools(
 ) -> dict[str, Any]:
     """
     Send a conversation to the LLM with optional tool schemas.
-
-    Returns a dict:
-    {
-        "response": str,           # assistant text (may be empty if tool_calls present)
-        "tool_calls": [            # list of requested tool calls (may be empty)
-            {
-                "id":        str,
-                "tool":      str,   # function name
-                "arguments": dict
-            }
-        ],
-        "finish_reason": str       # "stop" | "tool_calls" | "length"
-    }
+    Handles Groq tool_use_failed by retrying without tools.
     """
-    # Build message list — prepend system prompt if provided
     full_messages = []
     if system_prompt:
         full_messages.append({"role": "system", "content": system_prompt})
     full_messages.extend(messages)
 
-    # Build tool schemas in OpenAI function-calling format
-    openai_tools = None
-    if tools:
-        openai_tools = [_to_openai_tool(t) for t in tools]
+    # Trim tool list to avoid Groq hallucinating malformed calls
+    openai_tools = _trim_tools(tools) if tools else None
 
-    kwargs: dict[str, Any] = {
-        "model": MODEL_NAME,
-        "messages": full_messages,
-    }
+    kwargs: dict[str, Any] = {"model": MODEL_NAME, "messages": full_messages}
     if openai_tools:
         kwargs["tools"] = openai_tools
         kwargs["tool_choice"] = "auto"
 
-    response = client.chat.completions.create(**kwargs)
-    choice = response.choices[0]
+    try:
+        response = client.chat.completions.create(**kwargs)
+    except BadRequestError as e:
+        # Groq tool_use_failed — retry without tools so user gets a response
+        if "tool_use_failed" in str(e) or "tool" in str(e).lower():
+            kwargs.pop("tools", None)
+            kwargs.pop("tool_choice", None)
+            response = client.chat.completions.create(**kwargs)
+        else:
+            raise
+
+    choice  = response.choices[0]
     message = choice.message
 
-    # Parse tool calls
     parsed_tool_calls = []
     if message.tool_calls:
         for tc in message.tool_calls:
-            import json
             try:
                 args = json.loads(tc.function.arguments)
             except Exception:
@@ -82,42 +83,22 @@ def generate_with_tools(
             })
 
     return {
-        "response":     message.content or "",
-        "tool_calls":   parsed_tool_calls,
+        "response":      message.content or "",
+        "tool_calls":    parsed_tool_calls,
         "finish_reason": choice.finish_reason,
     }
 
 
-def _to_openai_tool(tool_def: dict) -> dict:
+def _trim_tools(tools: list[dict]) -> list[dict]:
     """
-    Convert an AFM tool definition into an OpenAI tool schema.
-
-    AFM tool shape:
-    {
-        "name": "get_weather",
-        "description": "...",
-        "transport": { "type": "http", "url": "..." },
-        "query_params": [
-            { "key": "city", "description": "City name", "required": true }
-        ]
-    }
+    Keep only the most useful tools when the list exceeds MAX_TOOLS.
+    Priority tools are kept first; the rest are trimmed.
     """
-    params: dict[str, Any] = {"type": "object", "properties": {}, "required": []}
+    if len(tools) <= MAX_TOOLS:
+        return tools
 
-    for qp in tool_def.get("query_params", []):
-        key = qp.get("key", "")
-        params["properties"][key] = {
-            "type": "string",
-            "description": qp.get("description", ""),
-        }
-        if qp.get("required", False):
-            params["required"].append(key)
+    priority = [t for t in tools if t.get("function", {}).get("name") in _PRIORITY_TOOLS]
+    others   = [t for t in tools if t.get("function", {}).get("name") not in _PRIORITY_TOOLS]
 
-    return {
-        "type": "function",
-        "function": {
-            "name":        tool_def.get("name", ""),
-            "description": tool_def.get("description", ""),
-            "parameters":  params,
-        },
-    }
+    trimmed = (priority + others)[:MAX_TOOLS]
+    return trimmed

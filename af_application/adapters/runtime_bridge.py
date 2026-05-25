@@ -47,7 +47,8 @@ def run():
             "tool_calls":          [],
             "tool_results":        [],
             "errors":              [],
-            "finished":            True,   # single-turn per CLI call
+            "finished":            True,
+            "_tool_schemas":       [],
         }
 
         result = runtime_graph.invoke(state)
