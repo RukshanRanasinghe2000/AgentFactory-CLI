@@ -41,6 +41,14 @@ class Tool(BaseModel):
     description: Optional[str] = None
 
 
+class Skill(BaseModel):
+    type: str                           # "local" | "remote"
+    path: Optional[str] = None          # local: path to skills directory
+    url: Optional[str] = None           # remote: URL
+
+    model_config = {"extra": "allow"}
+
+
 class Tools(BaseModel):
     mcp: List[MCPTool] = []
     builtin: List[Tool] = []
@@ -87,5 +95,6 @@ class AgentSpec(BaseModel):
 
     suggested_tools: List[str] = []
     suggested_interfaces: List[str] = []
+    skills: List[Skill] = []
 
     model_config = {"extra": "ignore"}
