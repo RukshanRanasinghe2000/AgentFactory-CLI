@@ -38,7 +38,7 @@ and present it in a clear, friendly format.
 
 ---
 
-# Instruction
+# Instructions
 
 ## 1. Extract the City
 

@@ -98,6 +98,12 @@ func serveAgent(pythonPath, appDir string, args []string) {
 		fatalf("spec file not found: %s", specPath)
 	}
 
+	// ── Validate spec before serving ─────────────────────────────────────────
+	if !validateSpec(specPath) {
+		fmt.Printf("\n  %sAborted.%s\n\n", colorDim, colorReset)
+		os.Exit(1)
+	}
+
 	// Load spec with full interface list
 	spinner("Loading agent spec")
 
@@ -162,9 +168,16 @@ func serveAgent(pythonPath, appDir string, args []string) {
 		fatalf("no active platformchat interfaces found in spec")
 	}
 
-	fmt.Printf("\n  %sListening on :%s%s\n\n", colorDim, port, colorReset)
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
-		fatalf("server error: %v", err)
+	// Only start the HTTP server if at least one webhook handler was registered
+	if needsHTTPServer(loadOut.Interfaces) {
+		fmt.Printf("\n  %sListening on :%s%s\n\n", colorDim, port, colorReset)
+		if err := http.ListenAndServe(":"+port, nil); err != nil {
+			fatalf("server error: %v", err)
+		}
+	} else {
+		// Polling mode — just block forever
+		fmt.Printf("\n  %sPress Ctrl+C to stop.%s\n\n", colorDim, colorReset)
+		select {}
 	}
 }
 
@@ -365,13 +378,24 @@ func truncate(s string, n int) string {
 	return s[:n] + "..."
 }
 
+// needsHTTPServer returns true if any platformchat interface uses notification
+// mode, which requires an HTTP listener.
+func needsHTTPServer(interfaces []specInterface) bool {
+	for _, iface := range interfaces {
+		if iface.Type == "platformchat" && iface.Mode == "notification" {
+			return true
+		}
+	}
+	return false
+}
+
 // loadDotEnv reads KEY=VALUE pairs from <appDir>/.env and sets them
 // as environment variables if not already set.
 func loadDotEnv(appDir string) {
 	path := filepath.Join(appDir, ".env")
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return // no .env — silently skip
+		return
 	}
 	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)
@@ -384,7 +408,7 @@ func loadDotEnv(appDir string) {
 		}
 		key := strings.TrimSpace(parts[0])
 		val := strings.TrimSpace(parts[1])
-		if os.Getenv(key) == "" { // don't override existing env vars
+		if os.Getenv(key) == "" {
 			os.Setenv(key, val)
 		}
 	}

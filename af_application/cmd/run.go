@@ -49,6 +49,12 @@ func runAgent(pythonPath, appDir string, args []string) {
 		fatalf("spec file not found: %s", specPath)
 	}
 
+	// ── Validate spec before running ─────────────────────────────────────────
+	if !validateSpec(specPath) {
+		fmt.Printf("\n  %sAborted.%s\n\n", colorDim, colorReset)
+		os.Exit(1)
+	}
+
 	// ── Load spec info from Python ────────────────────────────────────────────
 	spinner("Loading agent spec")
 
