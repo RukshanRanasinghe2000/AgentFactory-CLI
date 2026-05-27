@@ -40,6 +40,9 @@ func main() {
 	case "run":
 		runAgent(pythonPath, appDir, os.Args[2:])
 
+	case "serve":
+		serveAgent(pythonPath, appDir, os.Args[2:])
+
 	case "version", "--version", "-v":
 		fmt.Printf("%sagentfactory-app v0.1.0%s\n", colorCyan, colorReset)
 
@@ -126,14 +129,17 @@ func isAppDir(dir string) bool {
 func printUsage() {
 	fmt.Printf("%s%s%s", colorCyan, appBanner, colorReset)
 	fmt.Println(`Usage:
-  agentfactory init              Create a new agent spec interactively
-  agentfactory run <agent.md>    Run an agent from a spec file
-  agentfactory version           Show version
-  agentfactory help              Show this help
+  agentfactory init                    Create a new agent spec interactively
+  agentfactory run <agent.md>          Run an agent from a spec file (consolechat)
+  agentfactory serve <agent.md>        Start platform chat server (Telegram, etc.)
+  agentfactory serve <agent.md> --port 8080
+  agentfactory version                 Show version
+  agentfactory help                    Show this help
 
 Examples:
   agentfactory init
-  agentfactory run exports/weather-forecast-agent.md`)
+  agentfactory run exports/weather-forecast-agent.md
+  agentfactory serve test_data/telegram_agent.md`)
 }
 
 func fatalf(format string, args ...any) {
