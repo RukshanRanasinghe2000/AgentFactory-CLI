@@ -1,4 +1,4 @@
-# AgentFactory-CLI ( Abstract Architecture )
+# AgentFactory-CLI Runtime ( Abstract Architecture )
 
 ## 1. Top-Level: User to CLI to Python
 
