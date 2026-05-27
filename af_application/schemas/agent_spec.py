@@ -56,8 +56,25 @@ class Tools(BaseModel):
     model_config = {"extra": "allow"}
 
 
+class Polling(BaseModel):
+    interval: str = "30s"
+    timeout: str = "25s"
+
+
+class Exposure(BaseModel):
+    http: Optional[Dict[str, str]] = None   # {"path": "/telegram"}
+
+    model_config = {"extra": "allow"}
+
+
 class Interface(BaseModel):
-    type: str
+    type: str                                # "consolechat" | "webchat" | "webhook" | "platformchat"
+    platform: Optional[str] = None           # "telegram" | "slack" | "gchat"
+    mode: Optional[str] = None               # "notification" | "request" | "polling"
+    platform_config: Optional[Dict[str, str]] = None
+    polling: Optional[Polling] = None
+    exposure: Optional[Exposure] = None
+    authentication: Optional[Authentication] = None
 
     model_config = {"extra": "allow"}
 

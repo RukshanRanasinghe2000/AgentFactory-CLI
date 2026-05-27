@@ -11,7 +11,12 @@ import (
 	"strings"
 )
 
-// runtimeInput is the JSON payload sent to the runtime bridge.
+const runtimeBanner = `
+┌─ AgentFactory ───────────────────┐
+│           Runtime                │
+└──────────────────────────────────┘
+`
+
 type runtimeInput struct {
 	Phase     string              `json:"phase"`
 	SpecPath  string              `json:"spec_path"`
@@ -49,6 +54,12 @@ func runAgent(pythonPath, appDir string, args []string) {
 		fatalf("spec file not found: %s", specPath)
 	}
 
+	// ── Validate spec before running ─────────────────────────────────────────
+	if !validateSpec(specPath) {
+		fmt.Printf("\n  %sAborted.%s\n\n", colorDim, colorReset)
+		os.Exit(1)
+	}
+
 	// ── Load spec info from Python ────────────────────────────────────────────
 	spinner("Loading agent spec")
 
@@ -64,11 +75,7 @@ func runAgent(pythonPath, appDir string, args []string) {
 	}
 
 	// ── Print agent header ────────────────────────────────────────────────────
-	fmt.Println()
-	fmt.Printf(" %s┌─ AgentFactory ───────────────────┐%s\n", colorCyan, colorReset)
-	fmt.Printf(" %s│%s %-34s%s│%s\n", colorCyan, colorBold, "Runtime", colorReset+colorCyan, colorReset)
-	fmt.Printf(" %s└──────────────────────────────────┘%s\n", colorCyan, colorReset)
-	fmt.Println()
+	fmt.Printf("%s%s%s\n", colorCyan, runtimeBanner, colorReset)
 
 	specVer := loadResult.SpecVersion
 	if specVer == "" {
