@@ -13,7 +13,11 @@ import (
 	"time"
 )
 
-// ── Telegram API types ────────────────────────────────────────────────────────
+const serveBanner = `
+┌─ AgentFactory ───────────────────┐
+│       Platform Chat Server       │
+└──────────────────────────────────┘
+`
 
 type tgUpdate struct {
 	UpdateID int       `json:"update_id"`
@@ -119,10 +123,7 @@ func serveAgent(pythonPath, appDir string, args []string) {
 	}
 
 	// Print header
-	fmt.Println()
-	fmt.Printf(" %s┌─ AgentFactory ───────────────────┐%s\n", colorCyan, colorReset)
-	fmt.Printf(" %s│%s %-34s%s│%s\n", colorCyan, colorBold, "Platform Chat Server", colorReset+colorCyan, colorReset)
-	fmt.Printf(" %s└──────────────────────────────────┘%s\n\n", colorCyan, colorReset)
+	fmt.Printf("%s%s%s\n", colorCyan, serveBanner, colorReset)
 	fmt.Printf("  %sAgent%s   %s%s%s\n", colorDim, colorReset, colorBold, loadOut.AgentName, colorReset)
 	fmt.Printf("  %sModel%s   %s%s / %s%s\n\n", colorDim, colorReset, colorCyan, loadOut.ModelProvider, loadOut.ModelName, colorReset)
 
