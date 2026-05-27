@@ -11,7 +11,12 @@ import (
 	"strings"
 )
 
-// runtimeInput is the JSON payload sent to the runtime bridge.
+const runtimeBanner = `
+┌─ AgentFactory ───────────────────┐
+│           Runtime                │
+└──────────────────────────────────┘
+`
+
 type runtimeInput struct {
 	Phase     string              `json:"phase"`
 	SpecPath  string              `json:"spec_path"`
@@ -70,11 +75,7 @@ func runAgent(pythonPath, appDir string, args []string) {
 	}
 
 	// ── Print agent header ────────────────────────────────────────────────────
-	fmt.Println()
-	fmt.Printf(" %s┌─ AgentFactory ───────────────────┐%s\n", colorCyan, colorReset)
-	fmt.Printf(" %s│%s %-34s%s│%s\n", colorCyan, colorBold, "Runtime", colorReset+colorCyan, colorReset)
-	fmt.Printf(" %s└──────────────────────────────────┘%s\n", colorCyan, colorReset)
-	fmt.Println()
+	fmt.Printf("%s%s%s\n", colorCyan, runtimeBanner, colorReset)
 
 	specVer := loadResult.SpecVersion
 	if specVer == "" {
