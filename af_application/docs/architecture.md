@@ -6,6 +6,7 @@
 graph TD
     U([User]) -->|agentfactory vali agent.md| CLI_VALI[Go CLI - vali command]
     U -->|agentfactory run agent.md| CLI_RUN[Go CLI - run command]
+    U -->|agentfactory serve agent.md| CLI_SERVE[Go CLI - serve command]
 
     CLI_VALI -->|parse and validate| PARSER[lexer + parser + validator]
     PARSER -->|validation report| CLI_VALI
@@ -13,14 +14,19 @@ graph TD
 
     CLI_RUN -->|stdin JSON phase=load| RB[runtime_bridge.py]
     CLI_RUN -->|stdin JSON phase=chat| RB
-
     RB -->|load_spec| SL[spec_loader.py]
     SL -->|AgentSpec dict| RB
-
     RB -->|invoke| RG[runtime_graph]
     RG -->|assistant_response| RB
     RB -->|JSON response| CLI_RUN
     CLI_RUN -->|response| U
+
+    CLI_SERVE -->|stdin JSON phase=load| RB
+    CLI_SERVE -->|starts HTTP server| SRV[Go HTTP Server]
+    SRV -->|stdin JSON phase=webhook| RB
+    RB -->|assistant_response| SRV
+    SRV -->|sendMessage| TG[Telegram API]
+    TG -->|updates| SRV
 ```
 
 ---
@@ -72,7 +78,34 @@ graph TD
 
 ---
 
-## 4. Validation Flow
+## 4. Platform Chat: Telegram
+
+```mermaid
+graph TD
+    SPEC[(telegram_agent.md)] -->|interfaces type=platformchat| SERVE[agentfactory serve]
+    SERVE -->|reads .env| ENV[TELEGRAM_BOT_TOKEN]
+    ENV --> SERVE
+
+    SERVE -->|mode=polling| POLL[Telegram getUpdates loop]
+    SERVE -->|mode=notification| WH[HTTP webhook handler]
+
+    POLL -->|new message text| BRIDGE[runtime_bridge.py webhook phase]
+    WH -->|POST body text| BRIDGE
+
+    BRIDGE -->|session_id = chat_id| SESSION[per-chat message history]
+    SESSION --> RG[runtime_graph]
+    RG -->|assistant_response| BRIDGE
+    BRIDGE -->|response text| POLL
+    BRIDGE -->|response text| WH
+
+    POLL -->|sendMessage| TG[Telegram API]
+    WH -->|sendMessage| TG
+    TG -->|delivered| USER([Telegram User])
+```
+
+---
+
+## 5. Validation Flow
 
 ```mermaid
 graph TD
@@ -90,7 +123,7 @@ graph TD
 
 ---
 
-## 5. Tool Execution: HTTP vs stdio
+## 6. Tool Execution: HTTP vs stdio
 
 ```mermaid
 graph TD
@@ -114,7 +147,7 @@ graph TD
 
 ---
 
-## 6. Memory Architecture
+## 7. Memory Architecture
 
 ```mermaid
 graph TD
@@ -135,6 +168,14 @@ graph TD
         S1 --> S3
         S2 --> S3
         S3 --> S4
+    end
+
+    subgraph PLAT["platformchat - Per-Chat Sessions"]
+        PC1[session key = platform + chat_id]
+        PC2[in-process dict in runtime_bridge.py]
+        PC3[isolated history per Telegram chat]
+        PC1 --> PC2
+        PC2 --> PC3
     end
 
     subgraph LT["long-term - Planned"]
@@ -165,10 +206,12 @@ graph TD
 
     MT -->|none| NONE
     MT -->|short-term| ST
+    MT -->|short-term + platformchat| PLAT
     MT -->|long-term| LT
     MT -->|semantic| SEM
 
     S4 --> P2
+    PC3 --> P2
     L2 --> P2
     V4 --> P1
 
