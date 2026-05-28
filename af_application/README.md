@@ -37,21 +37,21 @@
 ## Demos
 
 ### Console Chat Agent
-https://github.com/user-attachments/assets/demo_v_1.mp4
+[demo_v_1.mp4](demo/demo_v_1.mp4)
 
 > Weather forecast agent running in the terminal — HTTP MCP tool calling OpenWeatherMap, structured JSON output.
 
 ---
 
 ### Skills-Loaded Agent
-https://github.com/user-attachments/assets/demo_v_2.mp4
+[demo_v_2.mp4](demo/demo_v_2.mp4)
 
 > Support agent with local skills — structured troubleshooting workflows injected into the agent's context.
 
 ---
 
 ### Telegram Bot Agent
-https://github.com/user-attachments/assets/demo_v_3.mp4
+[demo_v_3.mp4](demo/demo_v_3.mp4)
 
 > Telegram bot running in polling mode — per-chat session memory, live responses via the Telegram API.
 
