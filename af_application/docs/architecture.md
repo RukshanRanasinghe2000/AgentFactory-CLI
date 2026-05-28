@@ -207,56 +207,56 @@ graph TD
 ```mermaid
 graph TD
     subgraph DECL["Spec Declaration"]
-        MT["memory_type: none / short-term / long-term / semantic"]
+        MT["memory_type"]
     end
 
-    subgraph NONE["none - Stateless"]
+    subgraph NONE["none — Stateless"]
         N1[No history passed to LLM]
         N2[Each turn is independent]
     end
 
-    subgraph ST["short-term - Current Implementation"]
-        S1[Rolling window - last 10 messages kept]
-        S2[Tool results truncated to 2000 chars]
-        S3[messages list stored in RuntimeState]
-        S4[Passed to LLM on every turn]
+    subgraph ST["short-term — Active"]
+        S1[Rolling window: last 10 msgs]
+        S2[Tool results capped at 2000 chars]
+        S3[Stored in RuntimeState.messages]
+        S4[Passed to LLM each turn]
         S1 --> S3
         S2 --> S3
         S3 --> S4
     end
 
-    subgraph PLAT["platformchat - Per-Chat Sessions"]
-        PC1[session key = platform + chat_id]
-        PC2[in-process dict in runtime_bridge.py]
-        PC3[isolated history per Telegram chat]
+    subgraph PLAT["platformchat — Per-Chat Sessions"]
+        PC1[session key: platform + chat_id]
+        PC2[in-process dict: runtime_bridge]
+        PC3[isolated history per chat]
         PC1 --> PC2
         PC2 --> PC3
     end
 
-    subgraph LT["long-term - Planned"]
-        L1[LangGraph SQLite or Redis checkpointer]
-        L2[Load full graph state on session start]
-        L3[Auto-save state after every node]
+    subgraph LT["long-term — Planned"]
+        L1[SQLite or Redis checkpointer]
+        L2[Load graph state on session start]
+        L3[Auto-save after every node]
         L4[Summarizer compresses old turns]
         L1 --> L2
         L3 --> L1
         L4 --> L2
     end
 
-    subgraph SEM["semantic - Planned"]
+    subgraph SEM["semantic — Planned"]
         V1[Embed user messages]
-        V2[Vector store - Pinecone or pgvector]
-        V3[Retrieve top-K relevant memories]
+        V2[Vector store: Pinecone or pgvector]
+        V3[Retrieve top-K memories]
         V4[Inject into system prompt]
         V1 --> V2
         V2 --> V3
         V3 --> V4
     end
 
-    subgraph LLM_IN["LLM Input - assembled per turn"]
-        P1[System Prompt - Role + Instructions + Skills]
-        P2[Message History - from active memory type]
-        P3[Tool Results - truncated]
+    subgraph LLM_IN["LLM Input — assembled per turn"]
+        P1[System Prompt: Role + Instructions + Skills]
+        P2[Message History: active memory]
+        P3[Tool Results: truncated]
     end
 
     MT -->|none| NONE
