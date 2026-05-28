@@ -6,6 +6,7 @@
 
 ## Table of Contents
 
+- [Architecture](#architecture)
 - [Features](#features)
 - [Demos](#demos)
 - [Building Agents](#building-agents)
@@ -18,7 +19,12 @@
 - [Tech Stack](#tech-stack)
 - [Test Specs](#test-specs)
 - [Project Structure](#project-structure)
-- [Architecture](#architecture)
+
+
+---
+## Architecture
+
+See [`docs/architecture.md`](docs/architecture.md) for Mermaid diagrams covering the full system, runtime graph, tool execution, platform chat, and memory architecture.
 
 ---
 
@@ -228,8 +234,3 @@ af_application/
   docs/             Architecture diagrams 
 ```
 
----
-
-## Architecture
-
-See [`docs/architecture.md`](docs/architecture.md) for Mermaid diagrams covering the full system, runtime graph, tool execution, platform chat, and memory architecture.
