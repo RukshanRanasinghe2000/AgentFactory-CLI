@@ -1,36 +1,68 @@
-# AgentFactory-CLI — Architecture
-
----
+# AgentFactory-CLI Runtime ( Abstract Architecture )
 
 ## 1. Top-Level: User to CLI to Python
 
 > The Go binary is the single entry point. It routes `vali`, `run`, and `serve` commands to the appropriate subsystem — the Go validator for spec checking, or the Python runtime bridge for agent execution.
 
 ```mermaid
-graph TD
-    U([User]) -->|agentfactory vali agent.md| CLI_VALI[Go CLI - vali command]
-    U -->|agentfactory run agent.md| CLI_RUN[Go CLI - run command]
-    U -->|agentfactory serve agent.md| CLI_SERVE[Go CLI - serve command]
+flowchart LR
 
-    CLI_VALI -->|parse and validate| PARSER[lexer + parser + validator]
-    PARSER -->|validation report| CLI_VALI
-    CLI_VALI -->|results| U
+    %% User
+    U([User])
 
-    CLI_RUN -->|stdin JSON phase=load| RB[runtime_bridge.py]
-    CLI_RUN -->|stdin JSON phase=chat| RB
-    RB -->|load_spec| SL[spec_loader.py]
-    SL -->|AgentSpec dict| RB
-    RB -->|invoke| RG[runtime_graph]
-    RG -->|assistant_response| RB
-    RB -->|JSON response| CLI_RUN
-    CLI_RUN -->|response| U
+    %% CLI Layer
+    subgraph CLI["Go CLI"]
+        VALI["vali command"]
+        RUN["run command"]
+        SERVE["serve command"]
+    end
 
-    CLI_SERVE -->|stdin JSON phase=load| RB
-    CLI_SERVE -->|starts HTTP server| SRV[Go HTTP Server]
-    SRV -->|stdin JSON phase=webhook| RB
-    RB -->|assistant_response| SRV
-    SRV -->|sendMessage| TG[Telegram API]
-    TG -->|updates| SRV
+    %% Validation Flow
+    subgraph VALIDATION["Validation Pipeline"]
+        PARSER["lexer + parser + validator"]
+    end
+
+    %% Runtime Flow
+    subgraph RUNTIME["Python Runtime"]
+        RB["runtime_bridge.py"]
+        SL["spec_loader.py"]
+        RG["runtime_graph"]
+    end
+
+    %% Server Flow
+    subgraph SERVER["Serving Layer"]
+        HTTP["Go HTTP Server"]
+        TG["Telegram API"]
+    end
+
+    %% User Commands
+    U -->|"agentfactory vali agent.md"| VALI
+    U -->|"agentfactory run agent.md"| RUN
+    U -->|"agentfactory serve agent.md"| SERVE
+
+    %% Validation
+    VALI -->|"parse + validate"| PARSER
+    PARSER -->|"validation report"| VALI
+    VALI -->|"results"| U
+
+    %% Runtime
+    RUN -->|"load/chat"| RB
+    RB -->|"load spec"| SL
+    SL -->|"AgentSpec"| RB
+    RB -->|"invoke"| RG
+    RG -->|"assistant response"| RB
+    RB -->|"JSON response"| RUN
+    RUN -->|"response"| U
+
+    %% Serve Mode
+    SERVE -->|"load"| RB
+    SERVE -->|"start server"| HTTP
+    HTTP -->|"webhook events"| RB
+    RB -->|"assistant response"| HTTP
+
+    %% Telegram
+    HTTP -->|"sendMessage"| TG
+    TG -->|"updates"| HTTP
 ```
 
 ---
