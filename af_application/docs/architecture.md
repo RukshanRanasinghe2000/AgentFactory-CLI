@@ -195,82 +195,106 @@ graph TD
 
 ## 7. Memory Architecture
 
-> Memory is declared in the spec via `memory_type`. The runtime implements the active strategy. LangGraph's `StateGraph` is the foundation — state flows through every node as an immutable snapshot, making memory management explicit, testable, and easy to extend.
+> `memory_type` is set in the YAML frontmatter of the agent spec. `platformchat` session isolation is not a `memory_type` — it activates automatically when `interfaces: [{type: "platformchat"}]` is set, switching the runtime to per-chat session handling.
 
-**Why LangGraph for memory and looping?**
+```yaml
+memory_type: "short-term"   # none | short-term | long-term | semantic
+```
 
-- **Explicit state** — `RuntimeState` is a typed dict passed through every node. Memory is just a field in that dict — no hidden globals, no framework magic.
-- **Conditional edges** — the `should_continue` edge lets the graph loop back to `chat_node` for multi-turn agentic workflows, or exit cleanly when `finished=True`.
-- **Checkpointing** — LangGraph supports persistent checkpointers (SQLite, Redis) that can save and restore full graph state between turns, enabling long-term memory with zero changes to node logic.
-- **Composable** — short-term, long-term, and semantic memory are just different implementations of the same `messages` field. Swapping strategies doesn't change the graph structure.
+| Goal | Config |
+|---|---|
+| Stateless, no history | `memory_type: "none"` |
+| Conversational terminal agent | `memory_type: "short-term"` (default) |
+| Telegram bot, per-user memory | `interfaces: [{type: "platformchat"}]` |
+| Persist memory across restarts | `memory_type: "long-term"` *(planned)* |
+| Vector-based recall | `memory_type: "semantic"` *(planned)* |
+
+**Why LangGraph?** `RuntimeState` is a typed dict passed through every node — memory is just a field in that dict. Conditional edges handle looping and exit. Checkpointers (SQLite, Redis) can persist full graph state with zero changes to node logic.
+
+**`none`** — No history passed to the LLM. Every turn is a fresh context. Good for lookup tools, formatters, or one-shot agents where prior messages add noise.
+
+**`short-term`** *(default)* — Last 10 messages kept in `RuntimeState.messages`, passed to the LLM each turn. Tool results truncated to 2000 chars to avoid context bloat. One session per process — all messages in a `run` session belong to the same conversation. History is lost on exit.
+
+**`platformchat`** — Short-term memory extended for multi-user deployments. Sessions keyed by `platform + chat_id` in an in-process dict in `runtime_bridge.py`. Each Telegram chat gets isolated history — concurrent users never mix. Lost on process restart.
+
+**`long-term`** *(planned)* — LangGraph checkpointer persists full graph state to SQLite or Redis. Sessions keyed by `thread_id` — the runtime reloads state on the next turn with the same ID. A summarizer compresses old turns to keep the context window manageable.
+
+**`semantic`** *(planned)* — User messages are embedded and stored in a vector DB (Pinecone, pgvector), namespaced by `user_id`. Each turn retrieves the top-K most relevant past memories and injects them into the system prompt. Best for agents with very long histories where replaying raw messages would overflow context.
 
 ```mermaid
-graph TD
-    subgraph DECL["Spec Declaration"]
-        MT["memory_type"]
+flowchart TD
+
+    MT["memory_type"]
+
+    %% none
+    subgraph NONE["none"]
+        N1["No history passed"]
+        N2["Each turn independent"]
+        N1 --> N2
     end
 
-    subgraph NONE["none — Stateless"]
-        N1[No history passed to LLM]
-        N2[Each turn is independent]
-    end
+    %% short-term
+    subgraph ST["short-term"]
+        S1["Rolling window"]
+        S2["Tool results truncated"]
+        S3["Messages in RuntimeState"]
+        S4["Passed to LLM each turn"]
 
-    subgraph ST["short-term — Active"]
-        S1[Rolling window: last 10 msgs]
-        S2[Tool results capped at 2000 chars]
-        S3[Stored in RuntimeState.messages]
-        S4[Passed to LLM each turn]
         S1 --> S3
         S2 --> S3
         S3 --> S4
     end
 
-    subgraph PLAT["platformchat — Per-Chat Sessions"]
-        PC1[session key: platform + chat_id]
-        PC2[in-process dict: runtime_bridge]
-        PC3[isolated history per chat]
-        PC1 --> PC2
-        PC2 --> PC3
+    %% platformchat
+    subgraph PLAT["platformchat"]
+        P1["session = platform + chat_id"]
+        P2["In-process session store"]
+        P3["Per-chat isolated history"]
+
+        P1 --> P2
+        P2 --> P3
     end
 
-    subgraph LT["long-term — Planned"]
-        L1[SQLite or Redis checkpointer]
-        L2[Load graph state on session start]
-        L3[Auto-save after every node]
-        L4[Summarizer compresses old turns]
-        L1 --> L2
+    %% long-term
+    subgraph LT["long-term"]
+        L1["SQLite / Redis checkpointer"]
+        L2["Load graph state"]
+        L3["Auto-save state"]
+        L4["Summarize old turns"]
+
         L3 --> L1
+        L1 --> L2
         L4 --> L2
     end
 
-    subgraph SEM["semantic — Planned"]
-        V1[Embed user messages]
-        V2[Vector store: Pinecone or pgvector]
-        V3[Retrieve top-K memories]
-        V4[Inject into system prompt]
+    %% semantic
+    subgraph SEM["semantic"]
+        V1["Embed messages"]
+        V2["Vector DB"]
+        V3["Retrieve memories"]
+        V4["Inject into prompt"]
+
         V1 --> V2
         V2 --> V3
         V3 --> V4
     end
 
-    subgraph LLM_IN["LLM Input — assembled per turn"]
-        P1[System Prompt: Role + Instructions + Skills]
-        P2[Message History: active memory]
-        P3[Tool Results: truncated]
+    %% llm input
+    subgraph INPUT["LLM Input"]
+        I1["System Prompt"]
+        I2["Message History"]
+        I3["Tool Results"]
     end
 
     MT -->|none| NONE
     MT -->|short-term| ST
-    MT -->|short-term + platformchat| PLAT
+    MT -->|platformchat| PLAT
     MT -->|long-term| LT
     MT -->|semantic| SEM
 
-    S4 --> P2
-    PC3 --> P2
-    L2 --> P2
-    V4 --> P1
+    S4 --> I2
+    P3 --> I2
+    L2 --> I2
+    V4 --> I1
 
-    P1 --> LLM_IN
-    P2 --> LLM_IN
-    P3 --> LLM_IN
 ```
