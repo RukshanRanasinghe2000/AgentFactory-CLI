@@ -1,6 +1,6 @@
 # AgentFactory-CLI (Runtime)
 
-> Python + Go runtime for running `.md` agent specs powered by LangGraph and any OpenAI-compatible LLM.
+> AgentFactory CLI is a Python + Go runtime inspired by [Agent-Flavored Markdown (AFM)](https://wso2.github.io/agent-flavored-markdown/)for validating, running, and serving portable AI agents defined in .md files. It supports runtime execution powered by LangGraph and any OpenAI-compatible LLM while helping developers catch structural errors, missing fields, typos, and unsafe configurations before deployment. Special thanks to the authors at WSO2 for introducing and open-sourcing the AFM concept.
 
 ---
 
